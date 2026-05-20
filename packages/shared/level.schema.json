@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirror-realm.app/schemas/level.schema.json",
+  "title": "MirrorRealmLevel",
+  "description": "A playable side-scrolling pixel-art platformer level extracted from a photo. Single source of truth — imported by Python (Pydantic) and TypeScript (auto-generated types).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "vibe", "platforms", "spawn", "goal"],
+  "properties": {
+    "schemaVersion": {
+      "description": "Semantic version of THIS schema. Bump on any breaking change.",
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "vibe": {
+      "description": "Which pre-baked tileset to render with. Enum is normative — see docs/04-domain-model.md#vibes.",
+      "type": "string",
+      "enum": [
+        "cozy",
+        "neon",
+        "ruined",
+        "forest",
+        "vapor",
+        "desert",
+        "industrial",
+        "snow",
+        "underwater",
+        "library",
+        "cosmic",
+        "monochrome"
+      ]
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/rect" }
+    },
+    "hazards": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/rect" }
+    },
+    "decorations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/decoration" }
+    },
+    "spawn": { "$ref": "#/$defs/point" },
+    "goal": { "$ref": "#/$defs/point" }
+  },
+  "$defs": {
+    "rect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0, "maximum": 1920 },
+        "y": { "type": "integer", "minimum": 0, "maximum": 540 },
+        "w": { "type": "integer", "minimum": 16, "maximum": 1920 },
+        "h": { "type": "integer", "minimum": 16, "maximum": 540 },
+        "label": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "decoration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0, "maximum": 1920 },
+        "y": { "type": "integer", "minimum": 0, "maximum": 540 },
+        "label": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0, "maximum": 1920 },
+        "y": { "type": "integer", "minimum": 0, "maximum": 540 }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+.eslintcache
+
+# Vite / build output
+apps/web/dist/
+apps/web/dev-dist/
+apps/web/.vite/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+apps/api/.venv/
+apps/api/dist/
+apps/api/build/
+apps/api/*.egg-info/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# GCP / Firebase
+.firebase/
+.firebaserc.local
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+gcloud-service-key.json
+**/serviceAccount*.json
+
+# Logs / coverage
+*.log
+coverage/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local Claude session noise
+.claude/
