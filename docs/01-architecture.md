@@ -151,8 +151,8 @@ sequenceDiagram
         API->>CG: record_usage(tokens, 1 call)
         CG->>FS: increment costGuard/today
         API-->>W: 200 {level}
-        W->>W: Pick tileset by vibe; build Phaser scene
-        W-->>U: Player drops in; level is playable
+        W->>W: Pick tileset by vibe, build Phaser scene
+        W-->>U: Player drops in, level is playable
     end
 ```
 
@@ -225,9 +225,9 @@ sequenceDiagram
     participant API as POST /api/submit
     participant FS as Firestore submissions/
 
-    U->>W: Beat level; tap "Submit to Daily pool"
+    U->>W: Beat level, tap "Submit to Daily pool"
     W->>API: POST /api/submit {level, deviceHash}
-    API->>API: Pydantic validate; check rate limit (5/day per deviceHash)
+    API->>API: Pydantic validate, check rate limit (5/day per deviceHash)
     API->>API: Reachability re-check (defense in depth)
     API->>FS: submissions/{contentHash}.set({level, createdAt, ttl})
     FS-->>API: ok (or "already submitted")
