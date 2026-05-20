@@ -119,7 +119,7 @@ gcloud auth login
 gcloud auth application-default login    # for local ADC -> Vertex AI
 
 # 4. Set the active GCP project (see docs/11-deployment-guide.md for project creation)
-gcloud config set project mirror-realm-prod
+gcloud config set project <your-project-id>
 
 # 5. Copy env templates
 cp apps/web/.env.example apps/web/.env.local

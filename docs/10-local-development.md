@@ -57,7 +57,7 @@ cd apps/api && uv sync && cd ../..
 gcloud auth login
 
 # 5. Set the active project (assumes you've already created it; if not, see docs/11)
-gcloud config set project mirror-realm-prod
+gcloud config set project <your-project-id>
 
 # 6. Application Default Credentials for the Vertex AI SDK
 gcloud auth application-default login
@@ -83,11 +83,11 @@ If step 9 passes, you're set.
 ### `apps/api/.env`
 
 ```bash
-# apps/api/.env.example — committed to repo
+# apps/api/.env.example — committed to repo (placeholders only, no real values)
 # docs: 10-local-development.md#env
 
-# GCP
-MR_GCP_PROJECT=mirror-realm-prod
+# GCP — replace <your-project-id> with your actual GCP project ID
+MR_GCP_PROJECT=<your-project-id>
 MR_GCP_LOCATION=asia-southeast2
 MR_FIRESTORE_DATABASE=(default)
 
@@ -99,12 +99,12 @@ MR_DAILY_GEMINI_CALL_CAP=300
 MR_DAILY_GEMINI_USD_CAP=1.0
 MR_DAILY_SUBMISSION_CAP_PER_DEVICE=5
 
-# Cloud Scheduler verification
-MR_SCHEDULER_SA_EMAIL=mirror-realm-scheduler@mirror-realm-prod.iam.gserviceaccount.com
+# Cloud Scheduler verification — SA name is deterministic, swap only the project
+MR_SCHEDULER_SA_EMAIL=mirror-realm-scheduler@<your-project-id>.iam.gserviceaccount.com
 MR_ALLOW_UNAUTH_ROTATE=false       # set true ONLY for local rotate testing
 
-# CORS
-MR_CORS_ORIGINS=http://localhost:5173,https://mirror-realm.web.app
+# CORS — comma-separated origins. Add your Firebase Hosting + dev URLs.
+MR_CORS_ORIGINS=http://localhost:5173,https://<your-project-id>.web.app
 
 # Telemetry
 MR_TRACE_ENABLED=true

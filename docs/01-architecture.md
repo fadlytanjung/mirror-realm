@@ -89,7 +89,7 @@ Single backend, single LLM, two GCP storage primitives. No queues, no caches, no
 
 ```mermaid
 flowchart LR
-    Untrusted["UNTRUSTED<br/>(any browser, any actor)"] -->|"HTTPS"| CORS["CORS allow<br/>only mirror-realm.web.app"]
+    Untrusted["UNTRUSTED<br/>(any browser, any actor)"] -->|"HTTPS"| CORS["CORS allow<br/>only your hosting origin"]
     CORS --> Validated["VALIDATED<br/>(Pydantic-checked input)"]
     Validated --> Trusted["TRUSTED<br/>(internal Python code)"]
     Trusted -->|"workload identity"| GCP["GCP services<br/>(scoped IAM roles)"]
@@ -185,7 +185,7 @@ sequenceDiagram
         API->>API: Hash 6 chars (collision check)
         API->>FS: levels/{hash}.set({compressed, ttl: +30d})
         FS-->>API: ok
-        API-->>W: { url: "https://mirror-realm.web.app/l/{hash}" }
+        API-->>W: { url: "https://your-host.web.app/l/{hash}" }
         W->>W: Encode short URL into QR
         W-->>U: Show QR + copyable URL
     end

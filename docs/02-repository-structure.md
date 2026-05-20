@@ -244,7 +244,7 @@ Rules:
 
 - **Idempotent scripts only.** Running `grant-iam.sh` twice must not error or change state.
 - **Declarative > imperative.** Prefer YAML applied via `gcloud apply` over a sequence of `gcloud create`/`update` calls.
-- **Single project per env**, naming: `mirror-realm-dev` for dev (optional), `mirror-realm-prod` for the live site.
+- **Single project per env.** Pick any GCP project IDs you like (e.g. `<your-project-id>-dev`, `<your-project-id>-prod`). Project IDs are configured via `MR_GCP_PROJECT` in `apps/api/.env` and `firebase use` on the web side — never hardcoded in source.
 
 <a id="docs-tree"></a>
 

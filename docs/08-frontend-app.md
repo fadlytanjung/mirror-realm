@@ -273,7 +273,7 @@ After winning, `ResultScene` shows a share sheet (DOM overlay, not Phaser):
 |                                |
 |   [   QR code canvas (256px) ] |
 |                                |
-|   https://mirror-realm.web.app |
+|   https://<your-host>.web.app  |
 |   /p/N4IgZg9hIFwgxgGwAQGUwBcQ… |
 |                                |
 |   [Copy URL]   [Native Share]  |
@@ -293,7 +293,8 @@ import { saveLevel } from '../services/api';
 async function buildShareUrl(level: Level, deviceHash: string): Promise<string> {
   const inline = compress(level);
   if (inline.length <= 600) {
-    return `https://mirror-realm.web.app/p/${inline}`;
+    // location.origin keeps share URLs aligned with whatever host the PWA is served from.
+    return `${location.origin}/p/${inline}`;
   }
   const { url } = await saveLevel(level, deviceHash);
   return url;

@@ -58,7 +58,7 @@ Things we know we'll want, in priority order. None require spec changes — they
 
 1. **App Check enrollment.** Close the "is this really our PWA?" gap. Requires Recaptcha v3 setup + frontend integration.
 2. **Manual approval for daily promotion.** Today rotation is fully automatic. Add an admin route (single-user, gcloud-IAM-gated) that lists pending submissions and lets the operator promote/reject.
-3. **Custom domain.** `mirror-realm.app` instead of the `.web.app` subdomain.
+3. **Custom domain.** A real domain (e.g. `your-custom-domain.com`) instead of the `.web.app` subdomain.
 4. **Web vitals.** Server-side `/api/analyze` p95 is already monitored; add a tiny client-side timing payload (`time_to_playable`) for end-to-end correlation.
 5. **Replay tile.** "Yesterday's Daily" tile on Home for the case where the user missed it.
 6. **Better camera UX.** A "review photo" frame before submitting — a half-second double-take to give the user agency.

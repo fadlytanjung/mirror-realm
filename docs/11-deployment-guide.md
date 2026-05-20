@@ -28,10 +28,11 @@ For the conceptual GCP overview, see [`GCP-Infrastructure-Guide.md`](../GCP-Infr
 ## 1. GCP project bootstrap (one time)
 
 ```bash
-# Variables — change these once, paste everywhere.
-export PROJECT_ID="mirror-realm-prod"
+# Variables — set ONCE for your environment, paste in every block below.
+# Use any GCP project ID you like (lowercase, hyphenated, globally unique).
+export PROJECT_ID="<your-project-id>"
 export REGION="asia-southeast2"
-export BILLING_ACCOUNT_ID="<your billing account>"   # gcloud billing accounts list
+export BILLING_ACCOUNT_ID="<your-billing-account-id>"   # `gcloud billing accounts list` to find it
 
 # Create project
 gcloud projects create "${PROJECT_ID}" \
@@ -443,7 +444,7 @@ jobs:
       - name: Deploy web
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only hosting --project mirror-realm-prod
+          args: deploy --only hosting --project ${{ vars.GCP_PROJECT_ID }}
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 ```
@@ -490,7 +491,7 @@ If a deploy introduces a breaking change to `level.schema.json`, **rolling back 
 
 ## 10. Custom domain (optional)
 
-If you want `mirror-realm.app` instead of `mirror-realm-prod.web.app`:
+If you want a custom domain (e.g. `your-custom-domain.com`) instead of `<your-project-id>.web.app`:
 
 ```bash
 # Add custom domain in Firebase Console: Hosting → Add custom domain
@@ -505,7 +506,7 @@ Update CORS:
 ```bash
 gcloud run services update mirror-realm-api \
   --region "${REGION}" \
-  --update-env-vars MR_CORS_ORIGINS="https://mirror-realm.app,https://${PROJECT_ID}.web.app,http://localhost:5173"
+  --update-env-vars MR_CORS_ORIGINS="https://your-custom-domain.com,https://${PROJECT_ID}.web.app,http://localhost:5173"
 ```
 
 And update `apps/web/.env.production` to point at the new origin so the bundle calls the right `/api`. Note: if API is proxied through Firebase Hosting via rewrites, `VITE_API_BASE_URL=""` (same origin) is the cleanest setting.

@@ -117,11 +117,10 @@ app.add_middleware(
 )
 ```
 
-Allowlist (prod):
+Allowlist (typical prod set — fill in from `MR_CORS_ORIGINS`):
 
-- `https://mirror-realm.web.app`
-- `https://mirror-realm-prod.web.app` (alias)
-- `http://localhost:5173` (dev — REMOVE from prod when paranoid)
+- `https://<your-project-id>.web.app` — your Firebase Hosting origin
+- `http://localhost:5173` — local dev (REMOVE from prod when paranoid)
 - Custom domain if/when added
 
 Anything else gets a CORS preflight rejection. **No `*` wildcard ever.**

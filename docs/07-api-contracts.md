@@ -27,10 +27,10 @@ The canonical machine-readable contract is [`packages/shared/api.openapi.yaml`](
 
 ## 1. Conventions
 
-- **Base URL** (prod): `https://mirror-realm-api-<hash>-as.a.run.app`. Aliased behind `https://mirror-realm.web.app/api/*` via Firebase Hosting rewrites.
+- **Base URL** (prod): `https://mirror-realm-api-<hash>-<region>.a.run.app` (whatever Cloud Run assigns). Aliased behind `https://<your-project-id>.web.app/api/*` via Firebase Hosting rewrites (configured in `infra/firebase.json`).
 - **Content-Type**: `application/json` everywhere. Photo upload uses base64 in JSON (small enough at ≤200KB) so we don't need multipart.
 - **Authentication**: none from the browser. The only authenticated endpoint is `/api/daily-rotate`, which requires OIDC from Cloud Scheduler's service account.
-- **CORS**: allowlist is exactly `https://mirror-realm.web.app` + `http://localhost:5173` (local dev). Configured in `app/main.py`. Anything else is rejected.
+- **CORS**: allowlist is driven by `MR_CORS_ORIGINS` (typically your `https://<your-project-id>.web.app` + `http://localhost:5173` for dev). Configured in `app/main.py`. Anything else is rejected.
 - **Method semantics**: GET is safe + cacheable; POST is everything else. No PUT/PATCH/DELETE in v1.
 - **Timeouts**: server-side limit per endpoint listed below. Clients must set `AbortController` with the same limit + 2s.
 - **All timestamps**: ISO 8601 UTC, suffix `Z`. Example: `"2026-05-20T14:32:11Z"`.
@@ -177,7 +177,7 @@ class SaveLevelRequest(BaseModel):
 ```json
 {
   "hash": "aB3xQ9",
-  "url": "https://mirror-realm.web.app/l/aB3xQ9",
+  "url": "https://<your-project-id>.web.app/l/aB3xQ9",
   "expiresAt": "2026-06-19T00:00:00Z"
 }
 ```
