@@ -1,0 +1,29 @@
+# .github/workflows/spec-parity.yml
+# docs: 03-tech-stack.md#ci · 02-repository-structure.md#shared
+# Verifies generated artifacts still match packages/shared/*.schema.json.
+name: spec-parity
+on:
+  pull_request:
+    paths:
+      - "packages/shared/**"
+      - "apps/web/src/domain/**"
+      - "apps/api/app/agents/schemas.py"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: TS types match schema
+        run: pnpm gen:check
+      - uses: astral-sh/setup-uv@v3
+      - name: Python Vibe enum matches schema
+        working-directory: apps/api
+        run: |
+          uv sync --frozen
+          uv run pytest -q tests/unit/test_schema_parity.py

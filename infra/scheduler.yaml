@@ -1,0 +1,17 @@
+# infra/scheduler.yaml
+# docs: 11-deployment-guide.md#scheduler
+# Applied via envsubst in infra/deploy-scheduler.sh (${API_URL}, ${PROJECT_ID}).
+name: daily-rotate
+schedule: "0 0 * * *"
+timeZone: UTC
+description: Rotate Mirror Realm Daily World at 00:00 UTC.
+httpTarget:
+  uri: ${API_URL}/api/daily-rotate
+  httpMethod: POST
+  oidcToken:
+    serviceAccountEmail: mirror-realm-scheduler@${PROJECT_ID}.iam.gserviceaccount.com
+    audience: ${API_URL}
+attemptDeadline: 30s
+retryConfig:
+  retryCount: 3
+  minBackoffDuration: 10s

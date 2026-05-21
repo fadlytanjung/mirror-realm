@@ -1,0 +1,11 @@
+{
+  "indexes": [
+    {
+      "comment": "daily-rotate pop_oldest() orders submissions by createdAt asc (docs/05 §3.2)",
+      "collectionGroup": "submissions",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "createdAt", "order": "ASCENDING" }]
+    }
+  ],
+  "fieldOverrides": []
+}

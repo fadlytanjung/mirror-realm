@@ -1,0 +1,45 @@
+# .github/workflows/deploy-prod.yml
+# docs: 11-deployment-guide.md#ci
+name: deploy-prod
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: production # requires manual approval
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen:check
+      - run: pnpm typecheck
+      - run: pnpm --filter web test
+      - uses: astral-sh/setup-uv@v3
+      - run: cd apps/api && uv sync --frozen && uv run pytest -q tests/unit
+      - id: gcp-auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy API
+        run: ./infra/deploy-api.sh
+        env:
+          MR_GCP_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      - name: Build web
+        run: pnpm --filter web build
+      - name: Deploy web
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only hosting --config infra/firebase.json --project ${{ vars.GCP_PROJECT_ID }}
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
