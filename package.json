@@ -1,0 +1,25 @@
+{
+  "name": "mirror-realm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Turn iPhone photos into playable pixel-art platformer levels.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.25.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "gen": "node packages/shared/codegen/generate-ts.mjs",
+    "gen:check": "node packages/shared/codegen/generate-ts.mjs --check",
+    "typecheck": "pnpm --filter web typecheck",
+    "lint": "pnpm --filter web lint",
+    "test": "pnpm --filter web test",
+    "test:e2e": "pnpm --filter web test:e2e",
+    "build:web": "pnpm --filter web build",
+    "dev:web": "pnpm --filter web dev"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^15.0.4",
+    "pngjs": "^7.0.0"
+  }
+}

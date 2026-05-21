@@ -1,0 +1,211 @@
+# packages/shared/api.openapi.yaml
+# docs: 07-api-contracts.md
+# Canonical machine-readable HTTP contract for apps/api. The human-readable
+# mirror is docs/07-api-contracts.md — keep both in sync.
+openapi: 3.1.0
+info:
+  title: Mirror Realm API
+  version: "1"
+  description: Photo -> playable Level JSON, plus share/daily/submit endpoints.
+servers:
+  - url: https://{project}.web.app
+    variables:
+      project:
+        default: your-project-id
+paths:
+  /api/analyze:
+    post:
+      summary: Photo -> Level JSON
+      operationId: analyze
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnalyzeRequest" }
+      responses:
+        "200":
+          description: Playable level
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyzeResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+  /api/level/save:
+    post:
+      summary: Persist a Level for short-URL sharing
+      operationId: saveLevel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveLevelRequest" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaveLevelResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
+  /api/level/{hash}:
+    get:
+      summary: Fetch a saved Level
+      operationId: getLevel
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-zA-Z0-9]{6,7}$" }
+      responses:
+        "200":
+          description: Found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GetLevelResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+  /api/submit:
+    post:
+      summary: Add a Level to the Daily World pool
+      operationId: submit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitRequest" }
+      responses:
+        "200":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubmitResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/daily:
+    get:
+      summary: Today's Daily World level
+      operationId: getDaily
+      responses:
+        "200":
+          description: Today's level
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DailyResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/daily-rotate:
+    post:
+      summary: Rotate the Daily World (cron only, OIDC)
+      operationId: dailyRotate
+      security: [{ oidc: [] }]
+      responses:
+        "200":
+          description: Rotation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RotateResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+  /healthz:
+    get:
+      summary: Liveness
+      operationId: healthz
+      responses:
+        "200": { description: ok }
+  /readyz:
+    get:
+      summary: Readiness
+      operationId: readyz
+      responses:
+        "200": { description: ready }
+        "503": { description: not ready }
+components:
+  securitySchemes:
+    oidc:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiErrorResponse" }
+  schemas:
+    Level:
+      $ref: "./level.schema.json"
+    AnalyzeRequest:
+      type: object
+      additionalProperties: false
+      required: [photo, deviceHash]
+      properties:
+        photo: { type: string, minLength: 100, maxLength: 320000 }
+        deviceHash: { type: string, minLength: 8, maxLength: 64 }
+    AnalyzeResponse:
+      type: object
+      required: [level, wasUnreachableOnFirstAttempt, tracingId]
+      properties:
+        level: { $ref: "#/components/schemas/Level" }
+        wasUnreachableOnFirstAttempt: { type: boolean }
+        tracingId: { type: string }
+    SaveLevelRequest:
+      type: object
+      additionalProperties: false
+      required: [level, deviceHash]
+      properties:
+        level: { $ref: "#/components/schemas/Level" }
+        deviceHash: { type: string, minLength: 8, maxLength: 64 }
+    SaveLevelResponse:
+      type: object
+      required: [hash, url, expiresAt]
+      properties:
+        hash: { type: string }
+        url: { type: string }
+        expiresAt: { type: string, format: date-time }
+    GetLevelResponse:
+      type: object
+      required: [level, savedAt]
+      properties:
+        level: { $ref: "#/components/schemas/Level" }
+        savedAt: { type: string, format: date-time }
+    SubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [level, deviceHash]
+      properties:
+        level: { $ref: "#/components/schemas/Level" }
+        deviceHash: { type: string, minLength: 8, maxLength: 64 }
+    SubmitResponse:
+      type: object
+      required: [status, contentHash]
+      properties:
+        status: { type: string, enum: [queued, already_queued] }
+        contentHash: { type: string }
+    DailyResponse:
+      type: object
+      required: [forDate, level, isFromYesterday]
+      properties:
+        forDate: { type: string, format: date }
+        level: { $ref: "#/components/schemas/Level" }
+        isFromYesterday: { type: boolean }
+    RotateResponse:
+      type: object
+      properties:
+        rotated: { type: boolean }
+        forDate: { type: string, format: date }
+        promotedFromSubmissionHash: { type: [string, "null"] }
+        reason: { type: string }
+        keptDailyForDate: { type: string, format: date }
+    ApiErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        tracingId: { type: [string, "null"] }
+    ApiErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: "#/components/schemas/ApiErrorDetail" }
