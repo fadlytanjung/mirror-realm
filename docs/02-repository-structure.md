@@ -83,19 +83,17 @@ apps/web/
 │   ├── tilesets/                   # 12 *.png — one per vibe (≤200KB each)
 │   ├── sprites/
 │   │   └── spark.png               # player sprite sheet (24x32 frames)
-│   └── sfx/
-│       ├── jump.ogg
-│       ├── die.ogg
-│       └── win.ogg
+│   └── sfx/                       # *.wav (generated; see docs/03 §assets note)
+│       ├── jump.wav
+│       ├── die.wav
+│       └── win.wav
 ├── src/
 │   ├── main.ts                     # Vite entry
 │   ├── app.ts                      # Phaser.Game bootstrapper + route handler
-│   ├── routes/                     # tiny hash-router
-│   │   ├── home.ts
-│   │   ├── capture.ts
-│   │   ├── play.ts                 # consumes ?source=fresh|qr|daily|short
-│   │   ├── daily.ts
-│   │   └── share.ts
+│   ├── routes/                     # route resolution helpers
+│   │   └── play.ts                 # resolves inline/short/daily sources → Level
+│   │                               # (hash parsing + nav live in app.ts;
+│   │                               #  capture/daily/share flows live in scenes)
 │   ├── scenes/                     # Phaser scenes
 │   │   ├── BootScene.ts
 │   │   ├── MenuScene.ts
@@ -125,6 +123,8 @@ apps/web/
 ├── .env.example
 └── README.md                       # short pointer to docs/08-frontend-app.md
 ```
+
+> _Changed: 2026-05-21 — routing was consolidated: hash parsing + navigation live in `app.ts`, and the capture/daily/share flows live in their scenes/UI, so only `routes/play.ts` (source resolution) remains under `routes/`. Implementation also added `services/validate.ts`, `services/hash.ts`, and `ui/toast.ts` (all in the traceability matrix, docs/09 §11)._
 
 Conventions:
 

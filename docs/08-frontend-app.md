@@ -113,9 +113,10 @@ export class LevelScene extends Phaser.Scene {
   preload() {
     this.load.image('tiles', `/tilesets/${this.level.vibe}.png`);
     this.load.spritesheet('player', '/sprites/spark.png', { frameWidth: PLAYER_W, frameHeight: PLAYER_H });
-    this.load.audio('sfx-jump', '/sfx/jump.ogg');
-    this.load.audio('sfx-die', '/sfx/die.ogg');
-    this.load.audio('sfx-win', '/sfx/win.ogg');
+    // SFX ship as generated .wav (docs/03 §assets); audio is best-effort.
+    this.load.audio('sfx-jump', '/sfx/jump.wav');
+    this.load.audio('sfx-die', '/sfx/die.wav');
+    this.load.audio('sfx-win', '/sfx/win.wav');
   }
 
   create() {
@@ -140,7 +141,9 @@ export class LevelScene extends Phaser.Scene {
 }
 ```
 
-The `buildLevel` helper (in `src/game/builder.ts`) translates the abstract Level rects into Phaser tiles by sampling the tileset. Implementation note: use `Phaser.Tilemaps.Tilemap` rather than placing sprites manually — it's an order of magnitude faster on iOS.
+The `buildLevel` helper (in `src/game/builder.ts`) translates the abstract Level rects into Phaser tiles by sampling the tileset.
+
+> _Changed: 2026-05-21 — `buildLevel` tiles each rect into a `Phaser.Physics.Arcade.StaticGroup` of 32px tile sprites (frames chosen by the 9-slice picker in `tile-mapping.ts`) rather than a `Tilemap`. At 4–12 platforms the render cost is negligible and the static-group path is simpler and collision-ready. Revisit the `Tilemap` route if levels ever grow large._
 
 <a id="services"></a>
 

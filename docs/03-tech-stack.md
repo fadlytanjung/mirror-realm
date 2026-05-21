@@ -24,9 +24,11 @@ The full dependency list with rationale. Every entry must answer "why this and n
 ## 1. Pinning policy
 
 - **Exact-pin all runtime deps** (`"phaser": "3.80.1"`, not `"^3.80"`). Lockfiles (`pnpm-lock.yaml`, `uv.lock`) are committed.
+  - > _Changed: 2026-05-21 — backend framework deps (fastapi/uvicorn/pydantic) use compatible floors instead of exact pins because `google-adk` (1.x) sets transitive constraints (e.g. `uvicorn>=0.34`). `uv.lock` remains the exact-version record. Frontend stays exact-pinned where possible._
 - **Dev deps may use `^` ranges.** Lint/format/test churn isn't a stability risk.
 - **Bump cadence**: one PR per minor bump; group patches monthly. No "update everything" PRs.
 - **Single owner per dep**. If you add a library, you're on the hook for its next bump.
+- **Known accepted advisory**: `pyjwt==2.12.1` (transitive via `mcp` → `google-adk`) carries `PYSEC-2025-183`, which has **no fixed release in any version**. `pyjwt` is not on any Mirror Realm request path (we use no JWT auth), so it is pinned to the least-vulnerable available version and accepted until upstream patches. `pnpm audit --prod` and the rest of `pip-audit` are clean.
 
 <a id="frontend"></a>
 
@@ -34,10 +36,10 @@ The full dependency list with rationale. Every entry must answer "why this and n
 
 | Dep | Version | Why this, not the obvious alternative |
 |---|---|---|
-| **Vite** | `5.4.x` | PWA-friendly, `vite-plugin-pwa` exists, native ESM. Webpack would work but is slower; Parcel is too opaque. |
+| **Vite** | `^7.1` | PWA-friendly, `vite-plugin-pwa` exists, native ESM. Webpack would work but is slower; Parcel is too opaque. _Changed 2026-05-21: bumped 5.4.x → 7.x to clear two moderate dev-server advisories (path-traversal, fs.deny bypass); no patch existed in the 5.x line._ |
 | **TypeScript** | `5.6.x` | Type safety against the shared Level schema. JS-only would lose codegen value. |
 | **Phaser 3** | `3.80.1` | Mature, built-in Matter.js physics, sprite/tile primitives, scene system. Pixi.js is lower-level; PlayCanvas is overkill. |
-| **vite-plugin-pwa** | `0.20.x` | Generates manifest + service worker; Workbox under the hood. Avoids hand-rolling SW. |
+| **vite-plugin-pwa** | `^1.0` | Generates manifest + service worker; Workbox under the hood. Avoids hand-rolling SW. _Changed 2026-05-21: 0.20.x → 1.x for Vite 7 compatibility._ |
 | **idb** | `8.0.x` | Tiny IndexedDB wrapper. Dexie is heavier; we only need a key-value cache. |
 | **lz-string** | `1.5.0` | URL-safe Base64URL output; same compressor used by many shared-state-in-URL apps. brotli is bigger; pako (deflate) doesn't help much for ~600B payloads. |
 | **qrious** | `4.0.2` | 5KB canvas-based QR generator. Sufficient for our payload size; `qrcode` lib is heavier. |
@@ -63,7 +65,7 @@ Python **3.12**. Strict-mode mypy is enabled for `app/`.
 | Dep | Version | Why this, not the obvious alternative |
 |---|---|---|
 | **fastapi** | `0.115.x` | Async, OpenAPI-out-of-the-box, Pydantic-native. Flask is sync; Litestar is fine but FastAPI has bigger community. |
-| **uvicorn[standard]** | `0.32.x` | ASGI server; `[standard]` pulls in uvloop + httptools for speed |
+| **uvicorn[standard]** | `>=0.34` | ASGI server; `[standard]` pulls in uvloop + httptools for speed. _Changed 2026-05-21: floor raised from 0.32.x — `google-adk` requires `uvicorn>=0.34`._ |
 | **pydantic** | `2.9.x` | Validation + settings. Pinned to v2 — no v1 compatibility shims. |
 | **pydantic-settings** | `2.5.x` | Env-driven config. Cleaner than `os.environ.get(...)` scattered around. |
 | **google-adk** | `1.x` (latest stable at deploy time) | The AI agent framework. See `docs/06-ai-agent-layer.md`. |
@@ -142,6 +144,8 @@ GitHub Actions in `.github/workflows/`:
 ## 7. Asset sources (tilesets, sprites, sfx)
 
 All v1 assets are CC0 or compatible. Provenance is recorded next to each file in a sibling `LICENSE.md`.
+
+> _Changed: 2026-05-21 — v1 ships **procedurally generated** placeholder assets (tilesets, player sprite, SFX, icons) produced by [`infra/asset-gen/generate-assets.mjs`](../infra/asset-gen/generate-assets.mjs) from the `vibes.json` palettes, so a fresh clone is instantly playable with no third-party downloads. They are original repo output (CC0/MIT). The curated CC0 packs below are the upgrade path: replace the PNGs, preserving the 4×3 / 32px tileset frame layout in `apps/web/src/game/tile-mapping.ts`. SFX ship as `.wav` (not `.ogg`) since the generator emits PCM WAV._
 
 | Vibe | Source | License |
 |---|---|---|
