@@ -15,5 +15,5 @@ echo "VITE_API_BASE_URL=${API_URL}" > "${ROOT}/apps/web/.env.production"
 # Spec-parity gate (docs/00 success criteria): generated TS must match the schema.
 pnpm gen:check
 pnpm --filter web build
-firebase deploy --only hosting --config "${ROOT}/infra/firebase.json" --project "${PROJECT_ID}"
+firebase deploy --only hosting --config "${ROOT}/infra/firebase.json" --project "${PROJECT_ID}" --project-root "${ROOT}"
 echo "Web: https://${PROJECT_ID}.web.app"
