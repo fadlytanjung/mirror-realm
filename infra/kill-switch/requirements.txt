@@ -1,0 +1,3 @@
+# infra/kill-switch/requirements.txt
+# docs: 11-deployment-guide.md#budget
+google-api-python-client==2.151.0

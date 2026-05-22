@@ -43,6 +43,42 @@ flowchart TB
 - DOM overlays (`ui/`) sit *above* the Phaser canvas (z-indexed). They're used for things Phaser is bad at: native share sheet, QR scan camera viewport (which reuses our `services/camera.ts`).
 - All cross-scene state goes through `Phaser.Registry` (game-scoped key-value); no global variables.
 
+<a id="responsive"></a>
+
+### Responsive sizing
+
+> _Changed: 2026-05-22 — moved from a fixed 960×540 `Scale.FIT` canvas (which
+> letterboxed to a tiny band in portrait on phones) to `Scale.RESIZE`._
+
+- The game uses **`Phaser.Scale.RESIZE`**: the canvas always fills the viewport in
+  CSS pixels, in portrait or landscape, with no letterboxing.
+- Scenes read `this.scale.{width,height}` and re-layout through the **`onResize(scene, cb)`**
+  helper in `app.ts` (debounced via `requestAnimationFrame`, auto-removed on scene
+  shutdown, fires once immediately so there is a single layout path).
+- The world model stays **1920×540 logical px** (`WORLD_W`/`WORLD_H`). `LevelScene`
+  sets the camera zoom to `viewportHeight / WORLD_H` so the full world height is always
+  on screen and the camera follows the player horizontally.
+- In-canvas HUD hints that would distort under camera zoom go through the DOM `toast`
+  layer instead.
+
+> _Changed: 2026-05-22 — camera + share-sheet robustness:_
+> - _**Camera fallback:** the live camera (`getUserMedia`) needs a secure context (HTTPS
+>   or localhost). When unavailable (e.g. plain-HTTP LAN), `CaptureScene` switches to
+>   `captureFromFile()` — a tap anywhere on the overlay opens the OS photo/camera picker.
+>   The picker must open from a real DOM gesture (the overlay's own listener), not a
+>   Phaser input event (those are processed in the game loop, after the gesture)._
+> - _**Share sheet** scrolls (`overflow-y:auto` + `align-items: safe center`) so the QR /
+>   Replay never crop on short landscape viewports; the share URL is a clickable,
+>   ellipsised `<a>`._
+> - _**Share links** prefer a SHORT `${location.origin}/l/<hash>` (minted via `saveLevel`
+>   on the current origin, so it works locally and in prod) — this keeps the QR
+>   low-density (the long inline `/p/<base64>` made the QR tiny in its canvas). Inline is
+>   the offline fallback only. Copy uses a `textarea`+`execCommand` fallback because
+>   `navigator.clipboard`/`navigator.share` need a secure context (unavailable on LAN http)._
+> - _The **About** panel is a scrollable DOM overlay (not Phaser text) so it never crops
+>   on rotate._
+> - _Rendering uses `antialias: true` (not `pixelArt`) so 2x-source art scales smoothly._
+
 <a id="routing"></a>
 
 ## 2. Routing
@@ -113,9 +149,10 @@ export class LevelScene extends Phaser.Scene {
   preload() {
     this.load.image('tiles', `/tilesets/${this.level.vibe}.png`);
     this.load.spritesheet('player', '/sprites/spark.png', { frameWidth: PLAYER_W, frameHeight: PLAYER_H });
-    this.load.audio('sfx-jump', '/sfx/jump.ogg');
-    this.load.audio('sfx-die', '/sfx/die.ogg');
-    this.load.audio('sfx-win', '/sfx/win.ogg');
+    // SFX ship as generated .wav (docs/03 §assets); audio is best-effort.
+    this.load.audio('sfx-jump', '/sfx/jump.wav');
+    this.load.audio('sfx-die', '/sfx/die.wav');
+    this.load.audio('sfx-win', '/sfx/win.wav');
   }
 
   create() {
@@ -140,7 +177,9 @@ export class LevelScene extends Phaser.Scene {
 }
 ```
 
-The `buildLevel` helper (in `src/game/builder.ts`) translates the abstract Level rects into Phaser tiles by sampling the tileset. Implementation note: use `Phaser.Tilemaps.Tilemap` rather than placing sprites manually — it's an order of magnitude faster on iOS.
+The `buildLevel` helper (in `src/game/builder.ts`) translates the abstract Level rects into Phaser tiles by sampling the tileset.
+
+> _Changed: 2026-05-21 — `buildLevel` tiles each rect into a `Phaser.Physics.Arcade.StaticGroup` of 32px tile sprites (frames chosen by the 9-slice picker in `tile-mapping.ts`) rather than a `Tilemap`. At 4–12 platforms the render cost is negligible and the static-group path is simpler and collision-ready. Revisit the `Tilemap` route if levels ever grow large._
 
 <a id="services"></a>
 
@@ -151,7 +190,7 @@ One file per external integration. No service imports another service.
 | Service | Public API |
 |---|---|
 | `api.ts` | `analyze(photo, deviceHash)`, `saveLevel(level, deviceHash)`, `getLevel(hash)`, `submit(level, deviceHash)`, `getDaily()` |
-| `camera.ts` | `requestStream()`, `capture(stream): Promise<Blob>`, `release(stream)` — JPEG output ≤200KB |
+| `camera.ts` | `streamSupported()`, `requestStream()`, `capture(video): string`, `captureFromFile(): Promise<string>`, `release(stream)` — base64 JPEG ≤200KB |
 | `storage.ts` | `loadCache<T>(key)`, `saveCache<T>(key, value, ttl)`, `getOrCreateDeviceHash(): string` (random 16 bytes hex, persisted) |
 | `qr.ts` | `encode(text): Promise<HTMLCanvasElement>`, `decodeFromVideo(video): AsyncIterable<string>` |
 | `compression.ts` | `compress(level): string` (lz-string base64url), `decompress(s): Level \| null` |

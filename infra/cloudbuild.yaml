@@ -1,0 +1,94 @@
+# infra/cloudbuild.yaml
+# docs: 11-deployment-guide.md#ci · 03-tech-stack.md#ci
+#
+# Console-triggered build for apps/api: quality gates -> Docker build ->
+# Artifact Registry push -> Cloud Run deploy. Point a Cloud Build trigger
+# (GCP console) at this file. Build context is the repo root; the API
+# Dockerfile + context live under apps/api/.
+#
+# Image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+# Create the registry once: infra/create-registry.sh
+steps:
+  # 1. Quality gates (ruff + mypy --strict + unit tests).
+  - name: python:3.12-slim
+    id: gates
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -e
+        pip install -q uv
+        cd apps/api
+        uv sync --locked
+        uv run ruff check app tests
+        uv run mypy app
+        uv run pytest -q tests/unit
+
+  # 2. Build the image (BuildKit, with registry cache).
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      - build
+      - -f
+      - apps/api/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+      - apps/api
+
+  # 3. Push both tags to Artifact Registry.
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}
+
+  # 4. Deploy to Cloud Run as the runtime service account.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --service-account
+      - mirror-realm-runtime@$PROJECT_ID.iam.gserviceaccount.com
+      - --allow-unauthenticated
+      - --max-instances
+      - "5"
+      - --memory
+      - 512Mi
+      - --cpu
+      - "1"
+      - --timeout
+      - "60"
+      - --concurrency
+      - "80"
+      # All app config comes from ONE secret (a full .env) mounted as a file; pydantic
+      # reads it via MR_ENV_FILE. Update config = add a secret version (docs/13 §3).
+      - --set-env-vars
+      - MR_ENV_FILE=/secrets/.env
+      - --set-secrets
+      - /secrets/.env=${_ENV_SECRET}:latest
+
+substitutions:
+  _REGION: asia-southeast2
+  _REPO: mirror-realm
+  _SERVICE: mirror-realm-api
+  _ENV_SECRET: mirror-realm
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

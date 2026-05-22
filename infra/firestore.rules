@@ -1,0 +1,12 @@
+// infra/firestore.rules
+// docs: 11-deployment-guide.md#firestore · 13-security.md
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny all client access. Only the Cloud Run service account (using
+    // workload identity, which bypasses these rules) can read/write.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mirror Realm — Privacy</title>
+    <style>
+      body {
+        font-family: ui-monospace, Menlo, monospace;
+        background: #0c0018;
+        color: #fff;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.6;
+      }
+      h1 {
+        color: #aa00ff;
+      }
+      a {
+        color: #00ffff;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 4px 12px 4px 0;
+        vertical-align: top;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Mirror Realm — Privacy</h1>
+    <p>
+      Mirror Realm has no accounts and collects no personal data. Here is exactly what happens to
+      data when you use it (see <em>docs/13-security.md §7</em> for the canonical version).
+    </p>
+    <table>
+      <tr>
+        <th>Data</th>
+        <th>Where it lives</th>
+        <th>Retention</th>
+      </tr>
+      <tr>
+        <td>Your photo</td>
+        <td>Processed in memory on the server, never stored</td>
+        <td>0 — discarded after the level is built</td>
+      </tr>
+      <tr>
+        <td>Levels you share</td>
+        <td>Firestore <code>levels/</code></td>
+        <td>30 days</td>
+      </tr>
+      <tr>
+        <td>Levels you submit</td>
+        <td>Firestore <code>submissions/</code></td>
+        <td>30 days or until promoted</td>
+      </tr>
+      <tr>
+        <td>Device hash</td>
+        <td>Random 16 bytes in your browser; used only for rate limiting</td>
+        <td>Clear site data to remove</td>
+      </tr>
+    </table>
+    <p>We do not collect IP addresses, geolocation, or any identifying data.</p>
+    <p><a href="/">‹ back to Mirror Realm</a></p>
+  </body>
+</html>

@@ -2,7 +2,12 @@
 
 > **Status**: normative · **Owner**: project lead · **Last revised**: 2026-05-20
 
-How to get a clone running on your laptop, calling real Vertex AI via Application Default Credentials, with frontend talking to a local backend, all without breaking your monthly budget.
+How to get a clone running on your laptop: the FastAPI backend calls Gemini with an
+AI Studio API key (`MR_GEMINI_API_KEY`) and Firestore via ADC, with the frontend
+talking to the local backend — all without breaking your monthly budget.
+
+> _Changed: 2026-05-22 — Gemini auth is now an API key (AI Studio), not Vertex ADC.
+> For the friendly step-by-step + test scenarios, see [`../RUNNING.md`](../RUNNING.md)._
 
 ---
 
@@ -59,13 +64,14 @@ gcloud auth login
 # 5. Set the active project (assumes you've already created it; if not, see docs/11)
 gcloud config set project <your-project-id>
 
-# 6. Application Default Credentials for the Vertex AI SDK
+# 6. Application Default Credentials — for Firestore (NOT Gemini; Gemini uses the API key)
 gcloud auth application-default login
+gcloud auth application-default set-quota-project <your-project-id>
 
 # 7. Generate shared types from JSON Schema
 pnpm gen
 
-# 8. Copy env templates
+# 8. Copy env templates, then put your AI Studio key in apps/api/.env (MR_GEMINI_API_KEY)
 cp apps/web/.env.example apps/web/.env.local
 cp apps/api/.env.example apps/api/.env
 

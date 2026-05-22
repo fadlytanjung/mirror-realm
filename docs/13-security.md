@@ -53,7 +53,7 @@ The Cloud Run service runs as this SA. Used by the API to call all downstream GC
 
 | Role | Why |
 |---|---|
-| `roles/aiplatform.user` | Call Vertex AI (Gemini) |
+| `roles/secretmanager.secretAccessor` (scoped to `mirror-realm-gemini-api-key`) | Read the Gemini API key at startup |
 | `roles/datastore.user` | Read/write Firestore |
 | `roles/storage.objectAdmin` | Read/write `mirror-realm-blobs` bucket (no other buckets) |
 | `roles/cloudtrace.agent` | Emit traces |
@@ -82,16 +82,28 @@ That's it. No Firestore, no Vertex. The Scheduler SA cannot do anything if leake
 
 ## 3. Secrets handling
 
-We don't have secrets to handle.
+> _Changed: 2026-05-22 — Gemini inference now authenticates with an AI Studio API key
+> (`MR_GEMINI_API_KEY`) instead of Vertex workload identity. The key is the project's
+> one real secret: stored in Secret Manager (`mirror-realm-gemini-api-key`), injected
+> into Cloud Run at deploy time via `--set-secrets`, and read from `apps/api/.env`
+> locally. It is **never** committed and **never** shipped in the web bundle._
 
-- **No API keys.** Vertex auth is workload identity.
-- **No DB credentials.** Firestore auth is workload identity.
+We have exactly **one** secret: the Gemini API key.
+
+- **Gemini API key** → Secret Manager secret `mirror-realm-gemini-api-key`, mounted as
+  the `MR_GEMINI_API_KEY` env var on Cloud Run. The runtime SA holds
+  `roles/secretmanager.secretAccessor` on that secret only. Locally it lives in the
+  git-ignored `apps/api/.env`.
+- **No DB credentials.** Firestore auth is workload identity (Cloud Run) / ADC (local).
+- **No API keys in the browser.** The PWA only talks to the Cloud Run URL.
 - **No tokens stored at rest.** OIDC tokens are minted per-request by Cloud Scheduler and discarded.
 
 What we **do** treat carefully:
 
-- **Firebase token** (used by CI to deploy hosting) lives in GitHub Actions secrets. Rotate annually.
-- **Workload Identity Federation** for GitHub→GCP: configured per [`11-deployment-guide.md`](./11-deployment-guide.md). Restricted to this repo.
+> _Changed: 2026-05-21 — CI/CD is Cloud Build (in-project), so there is no GitHub→GCP federation or long-lived deploy key to manage._
+
+- **Cloud Build runs in-project** as the Cloud Build service account (`<PROJECT_NUMBER>@cloudbuild.gserviceaccount.com`), scoped to push to Artifact Registry, deploy Cloud Run, and act as the runtime SA ([`11-deployment-guide.md#deploy-api-first`](./11-deployment-guide.md)). No exported keys.
+- **Firebase Hosting deploy** uses an SA with `roles/firebasehosting.admin` (or a local `firebase login`); no token is committed.
 
 If a future feature needs a real secret (e.g. a third-party API key), it goes in Google Secret Manager and is fetched at runtime by the Cloud Run SA. **Never** in env vars on Cloud Run for the prod project.
 

@@ -323,16 +323,25 @@ When implementing, update the **status board** ([§10](#status)) and the **trace
 
 Status values: `not started` · `spec complete` · `wip` · `done` · `released`.
 
+> _Changed: 2026-05-21 — initial implementation landed; statuses moved spec-complete → wip._
+
 | Feature | Status | Implementation %, est. | Last update |
 |---|---|---|---|
-| F1 Capture to Play | spec complete | 0% | 2026-05-20 |
-| F2 Play Runtime | spec complete | 0% | 2026-05-20 |
-| F3 Share via QR/URL | spec complete | 0% | 2026-05-20 |
-| F4 Open Shared Level | spec complete | 0% | 2026-05-20 |
-| F5 Daily World (read) | spec complete | 0% | 2026-05-20 |
-| F6 Submit to Daily | spec complete | 0% | 2026-05-20 |
-| F7 Daily Rotation (cron) | spec complete | 0% | 2026-05-20 |
-| F8 Cost Guard | spec complete | 0% | 2026-05-20 |
+| F1 Capture to Play | wip | 90% | 2026-05-21 |
+| F2 Play Runtime | wip | 90% | 2026-05-21 |
+| F3 Share via QR/URL | wip | 90% | 2026-05-21 |
+| F4 Open Shared Level | wip | 90% | 2026-05-21 |
+| F5 Daily World (read) | wip | 90% | 2026-05-21 |
+| F6 Submit to Daily | wip | 90% | 2026-05-21 |
+| F7 Daily Rotation (cron) | wip | 90% | 2026-05-21 |
+| F8 Cost Guard | wip | 90% | 2026-05-21 |
+
+Implementation complete and unit-tested locally; the full flow (analyze, save, get,
+submit, daily) is verified end-to-end against real Firestore + a live Gemini API-key
+call. Remaining: on-device (iPhone) E2E over HTTPS.
+
+> _Changed: 2026-05-22 — Gemini auth switched to an AI Studio API key (`google-genai`);
+> `vertex_client.py` → `genai_client.py`. Real Firestore enabled on `<your-project-id>`._
 
 Update this table in the same commit as the corresponding code change.
 
@@ -348,6 +357,9 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 |---|---|---|
 | `packages/shared/level.schema.json` | F1, F2, F3, F4, F5, F6, F7 | Single source of truth for Level shape |
 | `packages/shared/vibes.json` | F2 | Vibe enum mirror |
+| `packages/shared/api.openapi.yaml` | (all) | Machine-readable API contract (mirrors docs/07) |
+| `packages/shared/codegen/generate-ts.mjs` | (all) | JSON Schema → web TS types |
+| `packages/shared/codegen/generate-py.py` | F1 | JSON Schema → Pydantic schemas.py |
 | `apps/api/app/main.py` | (all) | FastAPI app + CORS + tracing setup |
 | `apps/api/app/settings.py` | (all) | pydantic-settings |
 | `apps/api/app/routers/analyze.py` | F1 | `/api/analyze` |
@@ -355,7 +367,7 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 | `apps/api/app/routers/submit.py` | F6 | `/api/submit` |
 | `apps/api/app/routers/daily.py` | F5, F7 | `/api/daily`, `/api/daily-rotate` |
 | `apps/api/app/routers/health.py` | (ops) | `/healthz`, `/readyz` |
-| `apps/api/app/agents/level_designer.py` | F1 | ADK agent |
+| `apps/api/app/agents/level_designer.py` | F1 | google-genai single-turn call |
 | `apps/api/app/agents/prompts/level_designer.system.md` | F1 | system prompt |
 | `apps/api/app/agents/prompts/level_designer.retry.md` | F1 | retry prompt |
 | `apps/api/app/agents/schemas.py` | F1 | Pydantic from JSON Schema |
@@ -374,7 +386,7 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 | `apps/api/app/services/cost_guard.py` | F1, F6, F8 | Cap enforcement + recording |
 | `apps/api/app/services/share_codec.py` | F4 | server-side decompress |
 | `apps/api/app/adapters/firestore_client.py` | (all) | singleton client |
-| `apps/api/app/adapters/vertex_client.py` | F1 | ADK + Vertex setup |
+| `apps/api/app/adapters/genai_client.py` | F1 | google-genai (AI Studio) setup |
 | `apps/api/app/telemetry/tracing.py` | (ops) | OTel + Cloud Trace |
 | `apps/api/app/telemetry/logging.py` | (ops) | structlog |
 | `apps/api/app/errors.py` | (all) | exception types |
@@ -385,6 +397,8 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 | `apps/web/src/services/storage.ts` | F4, F5 | IndexedDB |
 | `apps/web/src/services/qr.ts` | F3, F4 | encode + decode |
 | `apps/web/src/services/compression.ts` | F3, F4 | lz-string |
+| `apps/web/src/services/validate.ts` | F4 | runtime guard for untrusted Level input |
+| `apps/web/src/services/hash.ts` | F3, F6 | client content hash (matches server) |
 | `apps/web/src/scenes/BootScene.ts` | (all) | preload + transition |
 | `apps/web/src/scenes/MenuScene.ts` | (entry) | home |
 | `apps/web/src/scenes/CaptureScene.ts` | F1 | camera flow |
@@ -396,6 +410,7 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 | `apps/web/src/game/controls.ts` | F2 | touch + keyboard |
 | `apps/web/src/ui/ScanOverlay.ts` | F1 | scan animation |
 | `apps/web/src/ui/ShareSheet.ts` | F3 | share UI |
+| `apps/web/src/ui/toast.ts` | (all) | transient DOM toast for errors/info |
 | `apps/web/src/domain/level.ts` | (all) | generated TS types |
 | `apps/web/src/domain/vibes.ts` | F2 | generated TS |
 | `infra/firebase.json` | F3, F4 | hosting rewrites + cache headers |
@@ -404,6 +419,8 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 | `infra/firestore.rules` | (security) | deny-all client |
 | `infra/firestore.indexes.json` | F7 | submissions order_by createdAt |
 | `infra/kill-switch/main.py` | F8 | billing kill switch |
+| `infra/asset-gen/generate-assets.mjs` | F2 | procedural tilesets/sprite/sfx/icons |
+| `infra/deploy-api.sh` · `deploy-web.sh` · `deploy-scheduler.sh` · `grant-iam.sh` | (deploy) | idempotent deploy/IAM scripts |
 
 ---
 
