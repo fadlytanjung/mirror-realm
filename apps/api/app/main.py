@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 
-from .adapters.vertex_client import configure_vertex
+from .adapters.genai_client import configure_genai
 from .errors import ApiErrorDetail, ApiErrorResponse, MirrorRealmError, ValidationFailed
 from .routers import analyze, daily, health, level, submit
 from .settings import settings
@@ -25,7 +25,7 @@ log = structlog.get_logger(__name__)
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     configure_tracing()
-    configure_vertex()
+    configure_genai()
     log.info("startup", project=settings.gcp_project, model=settings.gemini_model)
     yield
 

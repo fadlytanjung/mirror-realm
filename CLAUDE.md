@@ -197,25 +197,26 @@ Every commit is a **traceable unit of change**. Bigger commits are fine; un-scop
 
 Per-stack conventions live in [`docs/03-tech-stack.md`](./docs/03-tech-stack.md) and [`docs/14-testing-strategy.md`](./docs/14-testing-strategy.md). Cross-cutting rules:
 
-- **No secrets in code.** Service accounts auth Cloud Run → Vertex. Local dev uses ADC. See [`docs/13-security.md`](./docs/13-security.md).
+- **No secrets in code.** The one secret is the Gemini API key (`MR_GEMINI_API_KEY`): Secret Manager in prod, git-ignored `apps/api/.env` locally. Firestore/GCS auth via Cloud Run SA (workload identity) / ADC locally. See [`docs/13-security.md`](./docs/13-security.md).
 - **No API keys in the browser bundle.** The PWA only talks to your Cloud Run URL. Anything secret-shaped that ends up in `apps/web/dist/` is a bug.
 - **No backwards-compat shims.** This is a fresh project; if a contract changes, fix all call sites in the same change.
 - **Trust internal code.** Validate at boundaries (incoming HTTP requests, Gemini responses). Don't sprinkle defensive `if x is None` inside well-typed internal code.
 - **Comments explain WHY, not WHAT.** Identifier names cover what; comments are for non-obvious constraints, workarounds, references to docs anchors.
 - **No emoji** in code or commits unless the user explicitly asks.
+- **Never hardcode the real GCP project id in docs.** All `docs/*.md`, `README.md`, `RUNNING.md`, and CLAUDE.md must use the placeholder `<your-project-id>`. The actual project id is local-only — it belongs in untracked/local config (`apps/api/.env`) and in the CLI/deploy config used for integration (`infra/.firebaserc`, `infra/*.sh` defaults), never in committed prose.
 
 ---
 
 ## 7. Working with AI / ADK
 
-Mirror Realm's AI surface is intentionally small (today: one vision agent that converts photos into level JSON). It uses **Google ADK** with **`gemini-3.1-flash-lite`** on Vertex AI. Details: [`docs/06-ai-agent-layer.md`](./docs/06-ai-agent-layer.md).
+Mirror Realm's AI surface is intentionally small (today: one vision agent that converts photos into level JSON). It uses the **`google-genai`** SDK with **`gemini-3.1-flash-lite`** on the **AI Studio (Gemini Developer API)** endpoint, authenticated by `MR_GEMINI_API_KEY`. Details: [`docs/06-ai-agent-layer.md`](./docs/06-ai-agent-layer.md).
 
 Key rules when touching agent code:
 
 - **Never call Gemini directly from `apps/web`.** All AI calls go through `apps/api`.
 - **All agent prompts live in `apps/api/app/agents/prompts/` as `.md` files**, not as Python string literals. They're versioned and reviewable like any other spec artifact.
 - **Response schemas are defined once in `packages/shared/`**, imported by both Python (Pydantic) and TypeScript (auto-generated). Single source of truth: the JSON Schema.
-- **ADK tracing is on by default.** Don't disable it. See [`docs/12-observability.md`](./docs/12-observability.md).
+- **OpenTelemetry tracing is on by default.** Don't disable it. See [`docs/12-observability.md`](./docs/12-observability.md).
 - **Cost ceiling is enforced.** Every agent call increments a counter; if monthly spend projects above the budget, the agent returns a friendly "we're full for the month" error. See [`docs/15-cost-and-limits.md`](./docs/15-cost-and-limits.md).
 
 ---

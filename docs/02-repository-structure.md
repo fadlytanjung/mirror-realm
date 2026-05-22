@@ -30,8 +30,8 @@ mirror-realm/
 ├── MirrorRealm-Design-Doc.md       # vision (input, not edited)
 ├── GCP-Infrastructure-Guide.md     # infra playbook (input, not edited)
 ├── .gitignore
-├── .github/
-│   └── workflows/                  # CI: lint, test, spec-parity, deploy
+│                                   # (no .github/workflows — CI/CD is Cloud Build,
+│                                   #  infra/cloudbuild.yaml, triggered via console)
 ├── docs/                           # SPECIFICATION (source of truth)
 │   ├── 00-overview.md
 │   ├── 01-architecture.md
@@ -155,7 +155,7 @@ apps/api/
 │   │   └── health.py               # GET /healthz, /readyz
 │   ├── agents/
 │   │   ├── __init__.py
-│   │   ├── level_designer.py       # LevelDesignerAgent (ADK Agent subclass)
+│   │   ├── level_designer.py       # run_level_designer (google-genai single-turn call)
 │   │   ├── prompts/
 │   │   │   ├── level_designer.system.md
 │   │   │   └── level_designer.retry.md
@@ -179,7 +179,7 @@ apps/api/
 │   ├── adapters/
 │   │   ├── __init__.py
 │   │   ├── firestore_client.py     # singleton AsyncFirestore client
-│   │   └── vertex_client.py        # ADK + Vertex AI setup
+│   │   └── genai_client.py         # google-genai (AI Studio) setup
 │   ├── telemetry/
 │   │   ├── __init__.py
 │   │   ├── tracing.py              # OTel setup, Cloud Trace exporter
@@ -187,7 +187,7 @@ apps/api/
 │   └── errors.py                   # custom exception types + HTTP mappers
 ├── tests/
 │   ├── unit/                       # pytest
-│   ├── integration/                # uses Firestore emulator + Vertex sandbox
+│   ├── integration/                # uses Firestore emulator + Gemini fake
 │   └── golden/                     # AI golden tests (photo → expected level shape)
 ├── .env.example
 └── README.md                       # short pointer to docs/06 + docs/07
@@ -197,7 +197,7 @@ Conventions:
 
 - **Layered (Clean Architecture lite)**: `routers` → `services` → `repositories` → `adapters`. Calls go down only.
 - **Pydantic everywhere at boundaries.** Request models, response models, agent outputs, repository return types.
-- **One adapter per external system.** Vertex, Firestore, GCS each get exactly one module.
+- **One adapter per external system.** Gemini (google-genai), Firestore, GCS each get exactly one module.
 - **Prompts as files, not strings.** `app/agents/prompts/*.md` are loaded at startup; the Python file just references the path. This keeps prompts diff-reviewable.
 
 <a id="shared"></a>
@@ -226,19 +226,25 @@ Rules:
 ```
 infra/
 ├── firebase.json                   # Hosting + emulators config
-├── .firebaserc                     # project mapping
-├── cloudbuild.yaml                 # Cloud Build trigger config
+├── .firebaserc                     # project mapping (<your-project-id>)
+├── cloudbuild.yaml                 # Cloud Build CI/CD: gates -> Docker -> AR -> Cloud Run
 ├── cloudrun.service.yaml           # declarative Cloud Run service (gcloud apply)
 ├── scheduler.yaml                  # Cloud Scheduler jobs (daily-rotate)
 ├── firestore.rules                 # deny-all client; SA full
 ├── firestore.indexes.json
-├── deploy-api.sh                   # builds + deploys Cloud Run
-├── deploy-web.sh                   # builds + deploys Firebase Hosting
+├── create-registry.sh              # idempotent: create Artifact Registry docker repo
+├── deploy-api.sh                   # docker build -> AR push -> Cloud Run (local equiv of cloudbuild)
+├── deploy-web.sh                   # gen:check + builds + deploys Firebase Hosting
+├── deploy-scheduler.sh             # idempotent: create/update daily-rotate job
 ├── grant-iam.sh                    # idempotent: applies IAM bindings from docs/13
+├── asset-gen/                      # one-shot procedural asset generator (not runtime)
+│   └── generate-assets.mjs
 └── kill-switch/                    # source for the billing kill-switch Cloud Function
     ├── main.py
     └── requirements.txt
 ```
+
+> _Changed: 2026-05-21 — CI/CD moved to Cloud Build (`cloudbuild.yaml`), added Artifact Registry (`create-registry.sh`), `asset-gen/`, and `deploy-scheduler.sh`. The API Dockerfile has a sibling `apps/api/.dockerignore` (build context is `apps/api/`)._
 
 Rules:
 

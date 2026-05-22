@@ -5,7 +5,14 @@
 // camera viewport is the DOM ScanOverlay; this scene wires it to the services.
 import Phaser from 'phaser'
 import { ScanOverlay } from '../ui/ScanOverlay'
-import { requestStream, release, capture, CameraError } from '../services/camera'
+import {
+  requestStream,
+  release,
+  capture,
+  captureFromFile,
+  streamSupported,
+  CameraError,
+} from '../services/camera'
 import { analyze, ApiError } from '../services/api'
 import { navigateHash, setLevel } from '../app'
 import { toast } from '../ui/toast'
@@ -21,6 +28,8 @@ export class CaptureScene extends Phaser.Scene {
   private overlay?: ScanOverlay
   private stream?: MediaStream
   private busy = false
+  private fileMode = false
+  private picking = false
 
   constructor() {
     super('CaptureScene')
@@ -33,25 +42,38 @@ export class CaptureScene extends Phaser.Scene {
     })
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanup, this)
 
+    if (!streamSupported()) {
+      // Insecure context (e.g. plain-HTTP LAN): no live camera. The overlay becomes
+      // a full-screen tap target that opens the photo picker (a real DOM gesture).
+      this.fileMode = true
+      this.overlay.setFileMode()
+      return
+    }
+
     requestStream()
       .then((s) => {
         this.stream = s
         return this.overlay?.attachStream(s)
       })
-      .catch((err: unknown) => {
-        toast(err instanceof CameraError ? err.message : 'Camera permission denied.')
-        navigateHash('#/')
+      .catch(() => {
+        // Permission denied or unavailable mid-flight — degrade to the picker.
+        this.fileMode = true
+        this.overlay?.setFileMode('camera blocked — tap to choose a photo')
       })
   }
 
   private async onShutter(): Promise<void> {
-    if (this.busy || !this.overlay) return
+    if (this.busy || this.picking || !this.overlay) return
     let photo: string
+    this.picking = true
     try {
-      photo = capture(this.overlay.video)
+      photo = this.fileMode ? await captureFromFile() : capture(this.overlay.video)
     } catch (err) {
-      toast(err instanceof CameraError ? err.message : 'Capture failed.')
+      // A cancelled picker is not an error worth shouting about.
+      if (err instanceof CameraError && err.message !== 'No photo selected.') toast(err.message)
       return
+    } finally {
+      this.picking = false
     }
 
     this.busy = true

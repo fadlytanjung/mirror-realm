@@ -23,10 +23,26 @@ export type Route =
   | { name: 'short'; payload: string }
   | { name: 'inline'; payload: string }
 
-const GAME_W = 960
-const GAME_H = 540
-
 let game: Phaser.Game
+
+/**
+ * Register a viewport-resize callback that survives scene restarts and is cleaned
+ * up on scene shutdown. Fires once immediately so callers have a single layout path.
+ * Debounced to coalesce the burst of events mobile browsers emit (URL bar, rotate).
+ */
+export function onResize(scene: Phaser.Scene, cb: (w: number, h: number) => void): void {
+  let raf = 0
+  const fire = (): void => {
+    cancelAnimationFrame(raf)
+    raf = requestAnimationFrame(() => cb(scene.scale.width, scene.scale.height))
+  }
+  scene.scale.on(Phaser.Scale.Events.RESIZE, fire)
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    cancelAnimationFrame(raf)
+    scene.scale.off(Phaser.Scale.Events.RESIZE, fire)
+  })
+  cb(scene.scale.width, scene.scale.height)
+}
 
 export function parseLocation(): Route {
   // Path-based deep links (Firebase rewrites serve index.html for these).
@@ -52,14 +68,27 @@ export function parseLocation(): Route {
   }
 }
 
+/**
+ * Start a scene and STOP every other running scene first. Plain game.scene.start()
+ * leaves the previous scene alive — which left CaptureScene's full-screen DOM overlay
+ * (and its dead back button) on top of the menu after navigating away. Each scene's
+ * SHUTDOWN handler (e.g. ScanOverlay cleanup) only fires when the scene is stopped.
+ */
+function startSceneExclusive(key: string, data?: object): void {
+  for (const s of game.scene.getScenes(true)) {
+    if (s.scene.key !== key) game.scene.stop(s.scene.key)
+  }
+  game.scene.start(key, data)
+}
+
 /** Centralised navigation. Resolves async sources, then starts the right scene. */
 export async function go(route: Route): Promise<void> {
   switch (route.name) {
     case 'home':
-      game.scene.start('MenuScene')
+      startSceneExclusive('MenuScene')
       return
     case 'capture':
-      game.scene.start('CaptureScene')
+      startSceneExclusive('CaptureScene')
       return
     case 'play':
       startLevel(getCurrentLevel(), 'fresh')
@@ -70,7 +99,7 @@ export async function go(route: Route): Promise<void> {
       const resolved = await resolvePlaySource(route)
       if (!resolved) {
         toast("That doesn't look like a Mirror Realm level.")
-        game.scene.start('MenuScene')
+        startSceneExclusive('MenuScene')
         return
       }
       startLevel(resolved.level, resolved.source, resolved.isFromYesterday)
@@ -82,12 +111,12 @@ export async function go(route: Route): Promise<void> {
 function startLevel(level: Level | null, source: PlaySource, isFromYesterday = false): void {
   if (!level) {
     toast('No level loaded yet — capture one first.')
-    game.scene.start('MenuScene')
+    startSceneExclusive('MenuScene')
     return
   }
   game.registry.set('level', level)
   game.registry.set('source', source)
-  game.scene.start('LevelScene', { level, source, isFromYesterday })
+  startSceneExclusive('LevelScene', { level, source, isFromYesterday })
 }
 
 function getCurrentLevel(): Level | null {
@@ -107,12 +136,21 @@ export function bootGame(): void {
   game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
-    width: GAME_W,
-    height: GAME_H,
     backgroundColor: '#140026',
-    pixelArt: true,
-    roundPixels: true,
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    // Smooth (linear) scaling instead of nearest-neighbour: the 2x-source art is
+    // up/down-scaled by the camera zoom, and NEAREST made it look like "broken
+    // pixels". antialias keeps tiles + sprites crisp-but-clean (docs/08 §responsive).
+    antialias: true,
+    roundPixels: false,
+    // RESIZE: the canvas always fills the viewport (no letterbox), so the game is
+    // full-screen in portrait or landscape. Scenes read this.scale.{width,height}
+    // and re-layout via onResize() (docs/08 §responsive).
+    scale: {
+      mode: Phaser.Scale.RESIZE,
+      autoCenter: Phaser.Scale.NO_CENTER,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    },
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
     scene: [BootScene, MenuScene, CaptureScene, LevelScene, ResultScene],
   })
@@ -121,4 +159,10 @@ export function bootGame(): void {
 
   // Re-route on hash changes (back button, in-app links).
   window.addEventListener('hashchange', () => void go(parseLocation()))
+
+  // iOS Safari sometimes reports stale dimensions on rotate and doesn't drive the
+  // RESIZE listener; force the ScaleManager to recompute after the orientation settles.
+  window.addEventListener('orientationchange', () => {
+    window.setTimeout(() => game.scale.refresh(), 120)
+  })
 }

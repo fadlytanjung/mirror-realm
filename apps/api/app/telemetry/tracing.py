@@ -24,7 +24,7 @@ def configure_tracing() -> None:
             {"service.name": "mirror-realm-api", "service.version": settings.git_sha}
         )
         provider = TracerProvider(resource=resource)
-        exporter = CloudTraceSpanExporter(project_id=settings.gcp_project)  # type: ignore[no-untyped-call]
+        exporter = CloudTraceSpanExporter(project_id=settings.gcp_project)
         provider.add_span_processor(BatchSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
     except Exception as exc:  # local dev without ADC / exporter — degrade gracefully

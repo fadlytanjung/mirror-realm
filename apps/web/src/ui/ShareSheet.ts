@@ -8,8 +8,6 @@ import { encode as qrEncode } from '../services/qr'
 import { saveLevel, submit, ApiError } from '../services/api'
 import { toast } from './toast'
 
-const INLINE_LIMIT = 600
-
 export interface ShareSheetOptions {
   level: Level
   deviceHash: string
@@ -26,10 +24,41 @@ function formatTime(ms: number): string {
 }
 
 async function buildShareUrl(level: Level, deviceHash: string): Promise<string> {
-  const inline = compress(level)
-  if (inline.length <= INLINE_LIMIT) return `${location.origin}/p/${inline}`
-  const { url } = await saveLevel(level, deviceHash)
-  return url
+  // Prefer a SHORT server link (/l/<hash>) minted on the CURRENT origin: it makes a
+  // clean, scannable QR and works on this host (local or prod). Fall back to the long
+  // inline (/p/<base64>) link only if the server save fails (offline).
+  try {
+    const { hash } = await saveLevel(level, deviceHash)
+    return `${location.origin}/l/${hash}`
+  } catch {
+    return `${location.origin}/p/${compress(level)}`
+  }
+}
+
+/** Copy that also works in insecure contexts (LAN http), where navigator.clipboard is unavailable. */
+async function copyText(text: string): Promise<boolean> {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      /* fall through to the legacy path */
+    }
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    const ok = document.execCommand('copy')
+    ta.remove()
+    return ok
+  } catch {
+    return false
+  }
 }
 
 export class ShareSheet {
@@ -42,7 +71,7 @@ export class ShareSheet {
       <div class="mr-sheet__card">
         <div class="mr-sheet__title">CLEARED in ${formatTime(opts.timeMs)}</div>
         <div class="mr-sheet__qr"><div class="mr-sheet__spinner"></div></div>
-        <div class="mr-sheet__url">building share link…</div>
+        <a class="mr-sheet__url" target="_blank" rel="noopener">building share link…</a>
         <div class="mr-sheet__row">
           <button class="mr-btn" data-act="copy">Copy URL</button>
           <button class="mr-btn" data-act="share">Share</button>
@@ -87,25 +116,22 @@ export class ShareSheet {
     const qrBox = this.el('.mr-sheet__qr')
     qrBox.innerHTML = ''
     qrBox.appendChild(qrEncode(this.shareUrl))
-    this.el('.mr-sheet__url').textContent = this.shareUrl
+    const link = this.el<HTMLAnchorElement>('.mr-sheet__url')
+    link.href = this.shareUrl // clickable; CSS ellipsises the long inline payload
+    link.textContent = this.shareUrl
   }
 
   private async onCopy(): Promise<void> {
     if (!this.shareUrl) return
-    try {
-      await navigator.clipboard.writeText(this.shareUrl)
-      toast('Link copied!')
-    } catch {
-      toast('Copy failed — long-press the URL.')
-    }
+    toast((await copyText(this.shareUrl)) ? 'Link copied!' : 'Copy failed — long-press the link.')
   }
 
   private async onShare(): Promise<void> {
     if (!this.shareUrl) return
-    if (navigator.share) {
+    if (navigator.share && window.isSecureContext) {
       await navigator.share({ title: 'Mirror Realm', url: this.shareUrl }).catch(() => undefined)
     } else {
-      void this.onCopy()
+      void this.onCopy() // Web Share needs HTTPS; on LAN http fall back to copy
     }
   }
 
@@ -114,6 +140,7 @@ export class ShareSheet {
     btn.disabled = true
     try {
       const res = await submit(this.opts.level, this.opts.deviceHash)
+      btn.textContent = res.status === 'queued' ? 'Submitted' : 'Already submitted'
       toast(res.status === 'queued' ? 'In the pool!' : 'Already in the pool!')
     } catch (err) {
       const code = err instanceof ApiError ? err.code : 'internal'

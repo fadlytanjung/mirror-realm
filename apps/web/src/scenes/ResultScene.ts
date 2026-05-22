@@ -24,7 +24,8 @@ export class ResultScene extends Phaser.Scene {
   }
 
   create(data: ResultData): void {
-    this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.55).setOrigin(0)
+    // Oversized so it covers the viewport even after a rotate while this overlay is up.
+    this.add.rectangle(0, 0, 8000, 8000, 0x000000, 0.55).setScrollFactor(0).setOrigin(0)
 
     void this.persistBestTime(data)
 

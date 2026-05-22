@@ -22,25 +22,30 @@ The heart of the product. Defines the Google ADK setup, the single `LevelDesigne
 
 <a id="why-adk"></a>
 
-## 1. Why ADK (and not raw Vertex SDK)
+## 1. How we call Gemini — `google-genai` + AI Studio API key
 
-Both work. We pick ADK for these specific reasons — if all of them stop being true, revisit.
+> _Changed: 2026-05-22 — switched from ADK Runner on Vertex AI to the `google-genai`
+> client on the Gemini Developer API (AI Studio). Reason: the project authenticates
+> with a single `MR_GEMINI_API_KEY` (Secret Manager in prod, `.env` locally) instead
+> of Vertex ADC, and ADK's `output_schema` path emits schema keywords
+> (`additionalProperties`, `$ref`) the Developer API rejects. The single-turn vision
+> call needs no session/runner machinery._
 
-| Reason | What ADK gives us |
+The agent is **one single-turn `generateContent` call** through the `google-genai`
+async client (`client.aio.models.generate_content`). The client routes to the Gemini
+Developer API because `app/adapters/genai_client.py` sets
+`GOOGLE_GENAI_USE_VERTEXAI=false` and `GOOGLE_API_KEY=<MR_GEMINI_API_KEY>` at startup.
+
+| Concern | How we handle it |
 |---|---|
-| **Native OpenTelemetry tracing** | One trace tree from FastAPI handler down through `agent.run()` → Vertex call. Manual OTel wiring is doable but error-prone. |
-| **Session abstraction** | Even our single-turn agent benefits from session/event semantics for trace-grouping multi-step runs (e.g., the retry round). |
-| **Prompt-as-file convention** | ADK encourages loading system instructions from files. Reviewable in git diffs; not buried in Python string literals. |
-| **Future-proof for tool use** | If we add a "place a tile" tool later (stretch idea), ADK's `Tool` abstraction is already in place. |
-| **Cloud-native** | Built by Google, deploys cleanly to Cloud Run with workload identity. |
+| **Auth** | `MR_GEMINI_API_KEY` (AI Studio). No Vertex, no ADC for inference. Key from Secret Manager in prod, `apps/api/.env` locally. |
+| **Structured output** | JSON mode (`response_mime_type="application/json"`) + the exact shape pinned in the system prompt; validated by Pydantic `Level` on the way out. We do **not** send a strict `responseSchema` (the Developer API rejects the keywords our Pydantic schema emits). |
+| **Prompt-as-file** | System instruction loaded from `app/agents/prompts/*.md`, not Python strings. |
+| **Cost accounting** | Our own counter — see [`§8`](#cost). |
+| **Reachability checking** | Our own A* in `app/domain/reachability.py`. |
+| **Tracing** | OpenTelemetry spans we configure in `app/telemetry/tracing.py`. |
 
-What ADK does NOT do for us, and we manage ourselves:
-
-- Cost accounting → see [`§8`](#cost) below
-- Schema validation of model output → we validate with Pydantic on top
-- Reachability checking → our own A* in `app/domain/reachability.py`
-
-Reference: [adk.dev/get-started/](https://adk.dev/get-started/).
+Reference: [ai.google.dev](https://ai.google.dev/gemini-api/docs).
 
 <a id="inventory"></a>
 
@@ -242,7 +247,9 @@ These two files **are the spec for the agent's behavior**. Changes to either nee
 
 ## 5. Response schema
 
-The agent's `responseSchema` is the JSON Schema in `packages/shared/level.schema.json`. ADK passes it through to Vertex's structured-output mode; Vertex constrains generation to the schema; Pydantic validates the result on the way out (defense in depth — if Vertex ever lets a malformed token slip, Pydantic catches it).
+The shape in `packages/shared/level.schema.json` (Pydantic `Level`) is the contract. The Gemini Developer API runs in JSON mode (`response_mime_type="application/json"`), and the exact field list + ranges are pinned in the system prompt; Pydantic `Level.model_validate_json` is the enforcing gate on the way out (a malformed or out-of-range response raises `AgentError`). One retry recovers invariant/reachability failures (§6).
+
+> _Changed: 2026-05-22 — we no longer send a strict `responseSchema`; the Developer API rejects the `additionalProperties`/`$ref` keywords Pydantic emits, so the shape lives in the prompt and Pydantic is the validator._
 
 The schema's `enum` for `vibe` is normative. Vertex will not produce an out-of-enum value.
 

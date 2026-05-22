@@ -30,7 +30,7 @@ For the conceptual GCP overview, see [`GCP-Infrastructure-Guide.md`](../GCP-Infr
 ```bash
 # Variables — set ONCE for your environment, paste in every block below.
 # Use any GCP project ID you like (lowercase, hyphenated, globally unique).
-export PROJECT_ID="<your-project-id>"
+export PROJECT_ID="<your-project-id>"   # your Mirror Realm GCP project
 export REGION="asia-southeast2"
 export BILLING_ACCOUNT_ID="<your-billing-account-id>"   # `gcloud billing accounts list` to find it
 
@@ -48,16 +48,20 @@ gcloud config set project "${PROJECT_ID}"
 # Enable APIs
 gcloud services enable \
   run.googleapis.com \
-  aiplatform.googleapis.com \
   firestore.googleapis.com \
+  secretmanager.googleapis.com \
   storage.googleapis.com \
   cloudscheduler.googleapis.com \
   cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
   cloudtrace.googleapis.com \
   cloudbilling.googleapis.com \
   pubsub.googleapis.com \
   cloudfunctions.googleapis.com
 ```
+
+> _Changed: 2026-05-22 — Gemini now uses the AI Studio API key (Secret Manager), so
+> `aiplatform.googleapis.com` (Vertex) is replaced by `secretmanager.googleapis.com`._
 
 <a id="iam"></a>
 
@@ -66,7 +70,7 @@ gcloud services enable \
 Two service accounts: one for the API (`-runtime`), one for the Scheduler caller (`-scheduler`).
 
 ```bash
-# Runtime SA — Cloud Run runs as this; calls Vertex/Firestore
+# Runtime SA — Cloud Run runs as this; calls Firestore/GCS + reads the Gemini secret
 gcloud iam service-accounts create mirror-realm-runtime \
   --display-name "Mirror Realm runtime"
 
@@ -74,9 +78,8 @@ gcloud iam service-accounts create mirror-realm-runtime \
 gcloud iam service-accounts create mirror-realm-scheduler \
   --display-name "Mirror Realm scheduler"
 
-# IAM bindings for runtime SA
+# Project-level bindings for runtime SA
 for ROLE in \
-  roles/aiplatform.user \
   roles/datastore.user \
   roles/storage.objectAdmin \
   roles/cloudtrace.agent \
@@ -86,6 +89,11 @@ for ROLE in \
     --role "${ROLE}"
 done
 
+# Read the Gemini API key — scoped to the one secret, not project-wide
+gcloud secrets add-iam-policy-binding mirror-realm-gemini-api-key \
+  --member "serviceAccount:mirror-realm-runtime@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role roles/secretmanager.secretAccessor
+
 # Allow scheduler SA to invoke the Cloud Run service (added AFTER first deploy)
 # gcloud run services add-iam-policy-binding mirror-realm-api \
 #   --member "serviceAccount:mirror-realm-scheduler@${PROJECT_ID}.iam.gserviceaccount.com" \
@@ -93,6 +101,23 @@ done
 ```
 
 These bindings live as code in `infra/grant-iam.sh` — run that script instead of typing the commands by hand, and the script is the source of truth.
+
+<a id="secrets"></a>
+
+### Secrets (one time)
+
+> _Changed: 2026-05-22 — the Gemini API key is the project's one secret._
+
+```bash
+# Create the secret, then add your AI Studio API key as the first version.
+gcloud secrets create mirror-realm-gemini-api-key --replication-policy=automatic
+printf 'YOUR_AI_STUDIO_API_KEY' | gcloud secrets versions add mirror-realm-gemini-api-key --data-file=-
+```
+
+The deploy step injects it as the `MR_GEMINI_API_KEY` env var via
+`gcloud run deploy --set-secrets=MR_GEMINI_API_KEY=mirror-realm-gemini-api-key:latest`
+(see `infra/cloudbuild.yaml` and `infra/deploy-api.sh`). Rotate by adding a new
+version; Cloud Run picks up `:latest` on the next deploy.
 
 <a id="firestore"></a>
 
@@ -152,21 +177,34 @@ service cloud.firestore {
 
 ## 4. First deploy of `apps/api`
 
-The simplest path: build + deploy in one gcloud command via `--source` (Cloud Build under the hood).
+> _Changed: 2026-05-21 — the API is containerized with Docker and built by **Cloud Build** (`infra/cloudbuild.yaml`), pushing to **Artifact Registry**, then deploying to Cloud Run. This replaces the `gcloud run deploy --source` path and GitHub Actions._
+
+#### 4a. Create the Artifact Registry repo (one time)
 
 ```bash
-# From repo root
-gcloud run deploy mirror-realm-api \
-  --source ./apps/api \
-  --region "${REGION}" \
-  --service-account "mirror-realm-runtime@${PROJECT_ID}.iam.gserviceaccount.com" \
-  --allow-unauthenticated \
-  --max-instances 5 \
-  --memory 512Mi \
-  --cpu 1 \
-  --timeout 60 \
-  --concurrency 80 \
-  --set-env-vars="MR_GCP_PROJECT=${PROJECT_ID},MR_GCP_LOCATION=${REGION},MR_GEMINI_MODEL=gemini-3.1-flash-lite,MR_CORS_ORIGINS=https://${PROJECT_ID}.web.app,MR_SCHEDULER_SA_EMAIL=mirror-realm-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
+./infra/create-registry.sh        # gcloud artifacts repositories create mirror-realm
+```
+
+This creates `${REGION}-docker.pkg.dev/${PROJECT_ID}/mirror-realm` (idempotent).
+
+#### 4b. Grant the Cloud Build service account deploy rights (one time)
+
+The default Cloud Build SA (`<PROJECT_NUMBER>@cloudbuild.gserviceaccount.com`) needs to push images and deploy as the runtime SA:
+
+```bash
+PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')
+CB_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+for ROLE in roles/run.admin roles/artifactregistry.writer roles/iam.serviceAccountUser; do
+  gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member "serviceAccount:${CB_SA}" --role "${ROLE}"
+done
+```
+
+#### 4c. Deploy
+
+Either set up a **Cloud Build trigger** (Console → Cloud Build → Triggers → connect repo → "Cloud Build configuration file" = `infra/cloudbuild.yaml`) and push to your branch, or build/deploy locally with the equivalent script:
+
+```bash
+./infra/deploy-api.sh             # docker build -> AR push -> Cloud Run deploy
 ```
 
 Once it returns, capture the URL:
@@ -195,26 +233,29 @@ curl -fsS "${API_URL}/readyz"         # → {"status":"ok",...}
 ### `apps/api/Dockerfile` (the spec-side reference)
 
 ```dockerfile
-# apps/api/Dockerfile
+# apps/api/Dockerfile  (build context: apps/api/)
 # docs: 11-deployment-guide.md#deploy-api-first
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    UV_LINK_MODE=copy
-
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy \
+    PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
+RUN pip install --no-cache-dir uv
 
-# uv for fast deps
-RUN pip install --no-cache-dir uv==0.4.*
+# Deps first (BuildKit cache mount) for fast incremental builds.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-dev --no-install-project
 
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+COPY app/ /app/app
+ENV PATH="/app/.venv/bin:$PATH"
 
-COPY app ./app
+RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --create-home app
+USER app
 
 EXPOSE 8080
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
 ```
 
 <a id="deploy-web-first"></a>
@@ -391,63 +432,27 @@ After this trips, re-enabling billing requires manual action in the Console — 
 
 <a id="ci"></a>
 
-## 8. Subsequent deploys (CI)
+## 8. Subsequent deploys (Cloud Build)
 
-`.github/workflows/deploy-prod.yml` runs on push to `main` (after PR review). Required environment secrets:
+> _Changed: 2026-05-21 — CI/CD is **Cloud Build**, triggered from the GCP console (not GitHub Actions). The pipeline is `infra/cloudbuild.yaml`._
 
-| Secret | Value |
-|---|---|
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | OIDC provider resource name |
-| `GCP_SERVICE_ACCOUNT` | A SA with `roles/run.admin` + `roles/iam.serviceAccountUser` on the runtime SA |
-| `FIREBASE_TOKEN` | `firebase login:ci` output |
+### API — `infra/cloudbuild.yaml`
 
-Workflow steps (skeleton):
+1. **Console → Cloud Build → Triggers → Create trigger.**
+2. Connect the repository (GitHub/Cloud Source) and pick the branch (e.g. push to `main`).
+3. **Configuration**: "Cloud Build configuration file (yaml)", location `infra/cloudbuild.yaml`.
+4. (Optional) override substitutions: `_REGION` (default `asia-southeast2`), `_REPO` (`mirror-realm`), `_SERVICE` (`mirror-realm-api`).
+5. Save. Every matching push now runs: **gates** (`ruff` + `mypy --strict` + `pytest`, incl. schema parity) → **Docker build** → **Artifact Registry push** → **Cloud Run deploy**.
 
-```yaml
-# .github/workflows/deploy-prod.yml
-# docs: 11-deployment-guide.md#ci
-name: deploy-prod
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+The build's Cloud Build SA needs the roles granted in [§4b](#deploy-api-first). Manual run from the console: **Triggers → Run**, or locally `./infra/deploy-api.sh`.
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    environment: production       # requires manual approval
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 9 }
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm gen:check     # fails if generated files drift
-      - run: pnpm typecheck
-      - run: pnpm test
-      - uses: astral-sh/setup-uv@v3
-      - run: cd apps/api && uv sync --frozen && uv run pytest -q tests/unit
-      - id: gcp-auth
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account:           ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
-      - name: Deploy API
-        run: ./infra/deploy-api.sh
-      - name: Build web
-        run: pnpm --filter web build
-      - name: Deploy web
-        uses: w9jds/firebase-action@master
-        with:
-          args: deploy --only hosting --project ${{ vars.GCP_PROJECT_ID }}
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-```
+### Web — Firebase Hosting
+
+The PWA is static, so it is **not** containerized. Deploy with `./infra/deploy-web.sh`
+(runs `pnpm gen:check` + `vite build` + `firebase deploy`). Wire its own trigger
+later if desired; web and API deploy independently. For Cloud Build to deploy
+hosting, grant the build SA `roles/firebasehosting.admin` and run `firebase deploy
+--only hosting` as a build step.
 
 The deploys are independent — a hosting-only change does not redeploy the API.
 
@@ -506,7 +511,7 @@ Update CORS:
 ```bash
 gcloud run services update mirror-realm-api \
   --region "${REGION}" \
-  --update-env-vars MR_CORS_ORIGINS="https://your-custom-domain.com,https://${PROJECT_ID}.web.app,http://localhost:5173"
+  --update-env-vars MR_CORS_ORIGINS_STR="https://your-custom-domain.com,https://${PROJECT_ID}.web.app,http://localhost:5173"
 ```
 
 And update `apps/web/.env.production` to point at the new origin so the bundle calls the right `/api`. Note: if API is proxied through Firebase Hosting via rewrites, `VITE_API_BASE_URL=""` (same origin) is the cleanest setting.

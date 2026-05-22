@@ -4,7 +4,11 @@
 // The ONLY network surface the PWA has to apps/api. No service imports another.
 import type { Level } from '../domain/level'
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+// Default the API base to the page's own host on :8080 so LAN testing works with no
+// config: open http://<laptop-ip>:5173 on a phone and it calls http://<laptop-ip>:8080
+// (not the phone's own localhost). Set VITE_API_BASE_URL explicitly for prod (Cloud Run).
+const BASE =
+  import.meta.env.VITE_API_BASE_URL ?? `${window.location.protocol}//${window.location.hostname}:8080`
 
 export interface AnalyzeResponse {
   level: Level

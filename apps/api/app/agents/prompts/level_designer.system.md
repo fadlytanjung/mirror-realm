@@ -3,7 +3,7 @@ Your job: look at a real-world photo and design a playable single-screen level.
 
 # Output
 
-Return ONLY valid JSON matching the response schema. No prose, no markdown.
+Return ONLY one valid JSON object matching the schema below. No prose, no markdown, no code fences.
 
 # World
 
@@ -33,4 +33,21 @@ Return ONLY valid JSON matching the response schema. No prose, no markdown.
 
 # Schema
 
-(Schema is supplied via `responseSchema`; you do not need to repeat it here.)
+Output exactly this JSON shape (no extra keys):
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "vibe": "<one of: cozy, neon, ruined, forest, vapor, desert, industrial, snow, underwater, library, cosmic, monochrome>",
+  "platforms": [{ "x": 0, "y": 0, "w": 16, "h": 16, "label": "optional short string" }],
+  "hazards": [{ "x": 0, "y": 0, "w": 16, "h": 16, "label": "optional short string" }],
+  "decorations": [{ "x": 0, "y": 0, "label": "optional short string" }],
+  "spawn": { "x": 0, "y": 0 },
+  "goal": { "x": 0, "y": 0 }
+}
+```
+
+Constraints:
+- `x` in [0, 1920], `y` in [0, 540]; `w` in [16, 1920], `h` in [16, 540]; `label` ≤ 64 chars (optional).
+- `platforms`: 4–12 items. `hazards`: 0–3 items. `decorations`: 0–16 items.
+- `schemaVersion` is always the string "1.0.0".

@@ -4,7 +4,7 @@
 // Home. Animated starfield, title, and three big tactile buttons. Phaser-native
 // (no SPA framework) — DOM is reserved for overlays that Phaser is bad at.
 import Phaser from 'phaser'
-import { navigateHash } from '../app'
+import { navigateHash, onResize } from '../app'
 import { listPlayed } from '../services/storage'
 
 const ACCENT = 0xaa00ff
@@ -16,34 +16,53 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width, height } = this.scale
     this.cameras.main.setBackgroundColor('#140026')
+    // Re-layout on rotate/resize so the menu always fills the viewport.
+    onResize(this, (w, h) => this.layout(w, h))
+  }
+
+  /** Idempotent: clears prior objects + tweens, then rebuilds for the given size. */
+  private layout(width: number, height: number): void {
+    this.tweens.killAll()
+    this.children.removeAll(true)
+
+    // Vertical nebula gradient behind the stars so the menu feels like a "realm".
+    const bg = this.add.graphics().setDepth(-10)
+    bg.fillGradientStyle(0x2a0a55, 0x2a0a55, 0x0c0018, 0x06121f, 1)
+    bg.fillRect(0, 0, width, height)
+
     this.drawStarfield(width, height)
 
-    // Title.
+    // Title scales down on narrow/short screens.
+    const titleSize = Math.round(Phaser.Math.Clamp(Math.min(width * 0.11, height * 0.1), 28, 60))
     this.add
-      .text(width / 2, height * 0.2, 'MIRROR REALM', {
+      .text(width / 2, height * 0.18, 'MIRROR REALM', {
         fontFamily: 'monospace',
-        fontSize: '52px',
+        fontSize: `${titleSize}px`,
         color: '#ffffff',
         fontStyle: 'bold',
       })
       .setOrigin(0.5)
       .setShadow(0, 0, '#aa00ff', 18, true, true)
     this.add
-      .text(width / 2, height * 0.2 + 44, 'turn any photo into a level', {
+      .text(width / 2, height * 0.18 + titleSize, 'turn any photo into a level', {
         fontFamily: 'monospace',
-        fontSize: '18px',
+        fontSize: '16px',
         color: '#c9b6ff',
       })
       .setOrigin(0.5)
 
+    // Centre the 3 buttons as a group and scale the gap to height so nothing overlaps
+    // or crops in short/landscape viewports (no scrolling needed).
     const cx = width / 2
-    this.button(cx, height * 0.46, 'CAMERA', ACCENT, () => navigateHash('#/capture'))
-    this.button(cx, height * 0.46 + 78, "TODAY'S WORLD", ACCENT_2, () => navigateHash('#/daily'))
-    this.button(cx, height * 0.46 + 156, 'ABOUT', 0x6a5acd, () => this.showAbout())
+    const btnW = Math.min(340, width - 48)
+    const gap = Math.round(Phaser.Math.Clamp(height * 0.13, 64, 80))
+    const mid = height * 0.56
+    this.button(cx, mid - gap, btnW, 'CAMERA', ACCENT, () => navigateHash('#/capture'))
+    this.button(cx, mid, btnW, "TODAY'S WORLD", ACCENT_2, () => navigateHash('#/daily'))
+    this.button(cx, mid + gap, btnW, 'ABOUT', 0x6a5acd, () => this.showAbout())
 
-    void this.showPlayedCount(cx, height - 28)
+    void this.showPlayedCount(cx, Math.min(height - 22, mid + gap + 52))
   }
 
   private drawStarfield(w: number, h: number): void {
@@ -66,8 +85,14 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
-  private button(x: number, y: number, label: string, color: number, onTap: () => void): void {
-    const w = 320
+  private button(
+    x: number,
+    y: number,
+    w: number,
+    label: string,
+    color: number,
+    onTap: () => void,
+  ): void {
     const h = 60
     const bg = this.add.rectangle(x, y, w, h, color, 0.18).setStrokeStyle(2, color, 1)
     const txt = this.add
@@ -96,34 +121,23 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private showAbout(): void {
-    const { width, height } = this.scale
-    const overlay = this.add
-      .rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
-      .setInteractive()
-    const lines = [
-      'MIRROR REALM',
-      '',
-      'Point your camera at anything.',
-      'A.I. reads the scene and builds a',
-      'tiny pixel-art platformer from it.',
-      '',
-      'No accounts. No image stored.',
-      'Share levels with friends via QR.',
-      '',
-      '[ tap to close ]',
-    ].join('\n')
-    const card = this.add
-      .text(width / 2, height / 2, lines, {
-        fontFamily: 'monospace',
-        fontSize: '18px',
-        color: '#ffffff',
-        align: 'center',
-        lineSpacing: 6,
-      })
-      .setOrigin(0.5)
-    overlay.once('pointerup', () => {
-      overlay.destroy()
-      card.destroy()
+    // DOM overlay (not Phaser text) so it scrolls and never crops in landscape.
+    const root = document.createElement('div')
+    root.className = 'mr-sheet'
+    root.innerHTML = `
+      <div class="mr-sheet__card mr-about">
+        <div class="mr-sheet__title">MIRROR REALM</div>
+        <p>Point your camera at anything. AI reads the scene and builds a tiny pixel-art platformer from it.</p>
+        <p>No accounts. No image stored. Share levels with friends via QR.</p>
+        <button class="mr-btn" data-act="close">Close</button>
+      </div>
+    `
+    document.body.appendChild(root)
+    const close = (): void => root.remove()
+    root.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement
+      if (t === root || t.closest('[data-act="close"]')) close()
     })
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, close)
   }
 }

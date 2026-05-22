@@ -336,9 +336,12 @@ Status values: `not started` · `spec complete` · `wip` · `done` · `released`
 | F7 Daily Rotation (cron) | wip | 90% | 2026-05-21 |
 | F8 Cost Guard | wip | 90% | 2026-05-21 |
 
-Implementation complete and unit-tested locally; remaining 10% is live Vertex /
-Firestore-emulator integration verification + on-device (iPhone) E2E. The
-agent's real Vertex call path can only be exercised with ADC + a live model.
+Implementation complete and unit-tested locally; the full flow (analyze, save, get,
+submit, daily) is verified end-to-end against real Firestore + a live Gemini API-key
+call. Remaining: on-device (iPhone) E2E over HTTPS.
+
+> _Changed: 2026-05-22 — Gemini auth switched to an AI Studio API key (`google-genai`);
+> `vertex_client.py` → `genai_client.py`. Real Firestore enabled on `<your-project-id>`._
 
 Update this table in the same commit as the corresponding code change.
 
@@ -364,7 +367,7 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 | `apps/api/app/routers/submit.py` | F6 | `/api/submit` |
 | `apps/api/app/routers/daily.py` | F5, F7 | `/api/daily`, `/api/daily-rotate` |
 | `apps/api/app/routers/health.py` | (ops) | `/healthz`, `/readyz` |
-| `apps/api/app/agents/level_designer.py` | F1 | ADK agent |
+| `apps/api/app/agents/level_designer.py` | F1 | google-genai single-turn call |
 | `apps/api/app/agents/prompts/level_designer.system.md` | F1 | system prompt |
 | `apps/api/app/agents/prompts/level_designer.retry.md` | F1 | retry prompt |
 | `apps/api/app/agents/schemas.py` | F1 | Pydantic from JSON Schema |
@@ -383,7 +386,7 @@ The canonical mapping. Every source file (when it exists) MUST appear here under
 | `apps/api/app/services/cost_guard.py` | F1, F6, F8 | Cap enforcement + recording |
 | `apps/api/app/services/share_codec.py` | F4 | server-side decompress |
 | `apps/api/app/adapters/firestore_client.py` | (all) | singleton client |
-| `apps/api/app/adapters/vertex_client.py` | F1 | ADK + Vertex setup |
+| `apps/api/app/adapters/genai_client.py` | F1 | google-genai (AI Studio) setup |
 | `apps/api/app/telemetry/tracing.py` | (ops) | OTel + Cloud Trace |
 | `apps/api/app/telemetry/logging.py` | (ops) | structlog |
 | `apps/api/app/errors.py` | (all) | exception types |

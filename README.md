@@ -38,8 +38,8 @@ This project follows **Spec-Driven Design**: `docs/` is the source of truth and 
 | Layer | Tech |
 |---|---|
 | Frontend | Vite + Phaser 3 + TypeScript (PWA, installable on iOS) |
-| Backend | FastAPI + [Google ADK](https://adk.dev/) (Python 3.12) |
-| AI | `gemini-3.1-flash-lite` via Vertex AI |
+| Backend | FastAPI + [`google-genai`](https://ai.google.dev/) (Python 3.12) |
+| AI | `gemini-3.1-flash-lite` via AI Studio (Gemini Developer API) |
 | Data | Firestore (Native mode) + Cloud Storage |
 | Hosting | Firebase Hosting (web) + Cloud Run (api) |
 | Scheduler | Cloud Scheduler (Daily World rotation) |
@@ -54,7 +54,7 @@ mirror-realm/
 ├── docs/                   # spec (source of truth, 00-16)
 ├── apps/
 │   ├── web/                # Vite + Phaser PWA
-│   └── api/                # FastAPI + ADK
+│   └── api/                # FastAPI + google-genai
 ├── packages/shared/        # canonical JSON Schemas
 └── infra/                  # firebase, cloud run, scheduler, kill-switch
 ```
@@ -63,27 +63,28 @@ Detail: [`docs/02-repository-structure.md`](./docs/02-repository-structure.md).
 
 ## Quick start
 
-You'll need: **Node 20**, **pnpm 9**, **Python 3.12**, **uv**, **gcloud CLI**, **Firebase CLI**, **Docker**. (Versions in [`docs/03-tech-stack.md`](./docs/03-tech-stack.md#1-pinning-policy).)
+> **New here? The easiest path is [`RUNNING.md`](./RUNNING.md)** — a copy-paste guide
+> covering one-time GCP setup, local run, iPhone testing, test scenarios, and deploy.
+
+You'll need: **Node 20**, **pnpm 9**, **Python 3.12**, **uv**, **gcloud CLI**, **Firebase CLI**, **Docker**, and an **AI Studio API key**. (Versions in [`docs/03-tech-stack.md`](./docs/03-tech-stack.md#1-pinning-policy).)
 
 ```bash
 # Install
 pnpm install
 cd apps/api && uv sync && cd ../..
 
-# Authenticate with YOUR Google Cloud account
+# Authenticate with YOUR Google Cloud account (ADC is for Firestore)
 gcloud auth login
 gcloud auth application-default login
-
-# Point at YOUR project (create one first per docs/11)
 gcloud config set project <your-project-id>
 
 # Copy env templates and fill in your values
 cp apps/web/.env.example apps/web/.env.local
 cp apps/api/.env.example apps/api/.env
-$EDITOR apps/api/.env       # set MR_GCP_PROJECT etc.
+$EDITOR apps/api/.env       # set MR_GEMINI_API_KEY (AI Studio) + MR_GCP_PROJECT
 ```
 
-Full walkthrough → [`docs/10-local-development.md`](./docs/10-local-development.md).
+Full walkthrough → [`RUNNING.md`](./RUNNING.md) · deeper detail in [`docs/10-local-development.md`](./docs/10-local-development.md).
 First-time GCP project setup → [`docs/11-deployment-guide.md`](./docs/11-deployment-guide.md).
 
 ## Run locally (two terminals)
@@ -105,7 +106,7 @@ Before opening a PR:
 1. **Read [`CLAUDE.md`](./CLAUDE.md)** — especially §2 (the docs-as-source-of-truth contract) and §5 (commit conventions). If you're changing behavior, you update the corresponding `docs/*.md` section in the **same** commit.
 2. **Run the local checks**: `pnpm lint && pnpm typecheck && pnpm test` (CI runs the same).
 3. **One logical change per commit.** A bug fix doesn't ride alongside a refactor.
-4. **No secrets in code, ever.** This repo uses workload identity throughout — there are no API keys to leak.
+4. **No secrets in code, ever.** The one secret (the Gemini API key) lives in Secret Manager / a git-ignored `.env`; Firestore uses workload identity. Nothing secret ships in the web bundle.
 
 Small fix? Send a PR. Bigger architectural change? Open an issue first so we can discuss whether it fits v1's design. Stretch ideas (multiplayer, custom tilesets, etc.) live in [`docs/16-roadmap.md`](./docs/16-roadmap.md).
 
@@ -123,7 +124,6 @@ You cannot accidentally burn a lot of money with this stack. The worst case is t
 
 Mirror Realm is free, open-source, no ads, no tracking, no subscriptions. After v1 launches, if it makes your day, you can buy me a coffee:
 
-- **Coffee donation** — link will be added here once v1 is live (probably [buymeacoffee.com/…](https://buymeacoffee.com/) — placeholder until I set up the page).
 - **Star the repo** so others can find it.
 - **File issues / send PRs** so it gets better.
 

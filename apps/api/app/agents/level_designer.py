@@ -53,62 +53,38 @@ class AgentRunner(Protocol):
 
 
 def _render_system_prompt() -> str:
+    # Targeted replacement (not str.format) so the literal JSON braces in the
+    # prompt's schema example are left untouched.
     template = (PROMPTS_DIR / "level_designer.system.md").read_text(encoding="utf-8")
-    return template.format(
-        gravity=GRAVITY,
-        move_vel=MOVE_VEL,
-        jump_vel=JUMP_VEL,
-        player_w=PLAYER_W,
-        player_h=PLAYER_H,
-        max_jump_height=MAX_JUMP_HEIGHT,
-        max_jump_distance=MAX_JUMP_DISTANCE,
-    )
+    repl = {
+        "{gravity}": str(GRAVITY),
+        "{move_vel}": str(MOVE_VEL),
+        "{jump_vel}": str(JUMP_VEL),
+        "{player_w}": str(PLAYER_W),
+        "{player_h}": str(PLAYER_H),
+        "{max_jump_height}": str(MAX_JUMP_HEIGHT),
+        "{max_jump_distance}": str(MAX_JUMP_DISTANCE),
+    }
+    for key, value in repl.items():
+        template = template.replace(key, value)
+    return template
 
 
 def _render_retry_prompt(violations: list[str]) -> str:
     template = (PROMPTS_DIR / "level_designer.retry.md").read_text(encoding="utf-8")
-    return template.format(violations="\n".join(f"- {v}" for v in violations))
+    return template.replace("{violations}", "\n".join(f"- {v}" for v in violations))
 
 
 @lru_cache(maxsize=1)
-def _runner() -> Any:
-    """Build the ADK runner once per process. Imported lazily (heavy + needs ADC)."""
-    from google.adk.agents import Agent
-    from google.adk.runners import Runner
-    from google.adk.sessions import InMemorySessionService
-    from google.genai import types as gen_types
+def _client() -> Any:
+    """Build the google-genai client once per process. Imported lazily (heavy).
 
-    agent = Agent(
-        name="level_designer",
-        model=settings.gemini_model,
-        instruction=_render_system_prompt(),
-        generate_content_config=gen_types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=Level.model_json_schema(),
-            temperature=0.7,
-            top_p=0.95,
-            max_output_tokens=2048,
-        ),
-    )
-    return Runner(
-        agent=agent,
-        app_name="mirror-realm",
-        session_service=InMemorySessionService(),  # type: ignore[no-untyped-call]
-    )
+    Reads GOOGLE_API_KEY + GOOGLE_GENAI_USE_VERTEXAI=false set by
+    adapters.genai_client.configure_genai (docs/06 §auth).
+    """
+    from google import genai
 
-
-def _extract(event: Any) -> tuple[str | None, int, int]:
-    """Pull (text, input_tokens, output_tokens) from an ADK/genai event, defensively."""
-    text: str | None = getattr(event, "text", None)
-    if text is None:
-        content = getattr(event, "content", None)
-        parts = getattr(content, "parts", None) if content else None
-        if parts:
-            text = "".join(getattr(p, "text", "") or "" for p in parts) or None
-    usage = getattr(event, "usage_metadata", None)
-    in_tok = int(getattr(usage, "prompt_token_count", 0) or 0)
-    out_tok = int(getattr(usage, "candidates_token_count", 0) or 0)
-    return text, in_tok, out_tok
+    return genai.Client()
 
 
 async def run_level_designer(
@@ -127,29 +103,35 @@ async def run_level_designer(
     if violations_for_retry:
         parts.append(gen_types.Part.from_text(text=_render_retry_prompt(violations_for_retry)))
 
-    runner = _runner()
-    session = await _ensure_session(runner)
+    # JSON mode (no strict response_schema): the Developer API rejects the
+    # additionalProperties/$ref keywords our Pydantic schema emits, so we pin the
+    # shape in the prompt and validate with Pydantic + one retry (docs/06 §6).
+    config = gen_types.GenerateContentConfig(
+        system_instruction=_render_system_prompt(),
+        response_mime_type="application/json",
+        temperature=0.7,
+        top_p=0.95,
+        max_output_tokens=4096,
+    )
+    contents = [gen_types.Content(role="user", parts=parts)]
 
-    text: str | None = None
-    in_tok = out_tok = 0
+    client = _client()
     try:
         async with asyncio.timeout(AGENT_CALL_TIMEOUT_S):
-            async for event in runner.run_async(
-                user_id="anon",
-                session_id=session,
-                new_message=gen_types.Content(role="user", parts=parts),
-            ):
-                t, i, o = _extract(event)
-                if t:
-                    text = t
-                in_tok = in_tok or i
-                out_tok = out_tok or o
+            resp = await client.aio.models.generate_content(
+                model=settings.gemini_model, contents=contents, config=config
+            )
     except TimeoutError as exc:
         raise AgentTimeoutError() from exc
     except Exception as exc:  # safety blocks surface as provider errors
         if "safety" in str(exc).lower() or "blocked" in str(exc).lower():
             raise SafetyFilterError() from exc
         raise AgentError() from exc
+
+    text = resp.text
+    usage = resp.usage_metadata
+    in_tok = int(getattr(usage, "prompt_token_count", 0) or 0)
+    out_tok = int(getattr(usage, "candidates_token_count", 0) or 0)
 
     if not text:
         raise AgentError()
@@ -164,12 +146,3 @@ async def run_level_designer(
         output_tokens=out_tok,
         was_retry=violations_for_retry is not None,
     )
-
-
-async def _ensure_session(runner: Any) -> str:
-    """Create a fresh ADK session id (API shape varies across versions)."""
-    svc = runner.session_service
-    session = svc.create_session(app_name="mirror-realm", user_id="anon")
-    if asyncio.iscoroutine(session):
-        session = await session
-    return str(getattr(session, "id", session))

@@ -19,6 +19,9 @@ apps/web/dist/
 apps/web/dev-dist/
 apps/web/.vite/
 
+# Opt-in AI-generated tileset scratch (review + copy into tilesets/ manually)
+apps/web/public/tilesets-ai/
+
 # Python
 __pycache__/
 *.pyc

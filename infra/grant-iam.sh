@@ -4,7 +4,7 @@
 # Idempotent: creates the two service accounts and binds least-privilege roles.
 set -euo pipefail
 
-PROJECT_ID="${MR_GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
+PROJECT_ID="${MR_GCP_PROJECT:-halo-expert}"
 RUNTIME_SA="mirror-realm-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 SCHEDULER_SA="mirror-realm-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -18,9 +18,10 @@ ensure_sa() {
 ensure_sa mirror-realm-runtime "Mirror Realm runtime"
 ensure_sa mirror-realm-scheduler "Mirror Realm scheduler"
 
-# Runtime SA roles (least privilege — docs/13 §2).
+ENV_SECRET="${MR_ENV_SECRET:-mirror-realm}"
+
+# Runtime SA project-level roles (least privilege — docs/13 §2).
 for ROLE in \
-  roles/aiplatform.user \
   roles/datastore.user \
   roles/storage.objectAdmin \
   roles/cloudtrace.agent \
@@ -29,6 +30,13 @@ for ROLE in \
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member "serviceAccount:${RUNTIME_SA}" --role "${ROLE}" --condition=None >/dev/null
 done
+
+# Read the app config (full .env, incl. the Gemini key) — scoped to the one secret,
+# not project-wide (docs/13 §3).
+gcloud secrets add-iam-policy-binding "${ENV_SECRET}" \
+  --member "serviceAccount:${RUNTIME_SA}" \
+  --role roles/secretmanager.secretAccessor \
+  --project "${PROJECT_ID}" >/dev/null
 
 echo "IAM bindings applied for ${RUNTIME_SA} and ${SCHEDULER_SA}."
 echo "Note: scheduler run.invoker binding is applied by deploy-api.sh after first deploy."

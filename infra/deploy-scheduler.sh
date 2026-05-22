@@ -4,7 +4,7 @@
 # Creates/updates the daily-rotate Cloud Scheduler job (OIDC-authed). Idempotent.
 set -euo pipefail
 
-PROJECT_ID="${MR_GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
+PROJECT_ID="${MR_GCP_PROJECT:-halo-expert}"
 REGION="${MR_GCP_LOCATION:-asia-southeast2}"
 SCHEDULER_SA="mirror-realm-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
 API_URL="${MR_API_URL:-$(gcloud run services describe mirror-realm-api --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')}"

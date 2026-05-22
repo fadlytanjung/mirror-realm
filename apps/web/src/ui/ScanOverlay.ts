@@ -15,6 +15,8 @@ export class ScanOverlay {
   private statusEl: HTMLDivElement
   private shutterEl: HTMLButtonElement
 
+  private fileMode = false
+
   constructor(opts: ScanOverlayOptions) {
     this.root = document.createElement('div')
     this.root.className = 'mr-scan'
@@ -31,12 +33,21 @@ export class ScanOverlay {
     this.videoEl = this.root.querySelector('.mr-scan__video') as HTMLVideoElement
     this.statusEl = this.root.querySelector('.mr-scan__status') as HTMLDivElement
     this.shutterEl = this.root.querySelector('.mr-scan__shutter') as HTMLButtonElement
+    const backEl = this.root.querySelector('.mr-scan__back') as HTMLButtonElement
 
     this.shutterEl.addEventListener('click', opts.onShutter)
-    ;(this.root.querySelector('.mr-scan__back') as HTMLButtonElement).addEventListener(
-      'click',
-      opts.onClose,
-    )
+    backEl.addEventListener('click', opts.onClose)
+
+    // In file-picker mode, a tap ANYWHERE on the screen opens the picker — these
+    // are real DOM gestures (unlike Phaser's deferred input), so the OS file/camera
+    // dialog is allowed to open. The shutter has its own handler; ignore it + back
+    // here to avoid firing twice. (docs/08 §camera)
+    this.root.addEventListener('click', (e) => {
+      if (!this.fileMode) return
+      const t = e.target as HTMLElement
+      if (t.closest('.mr-scan__shutter') || t.closest('.mr-scan__back')) return
+      opts.onShutter()
+    })
   }
 
   get video(): HTMLVideoElement {
@@ -52,6 +63,13 @@ export class ScanOverlay {
     this.root.classList.toggle('is-scanning', on)
     this.shutterEl.disabled = on
     this.statusEl.textContent = on ? message : ''
+  }
+
+  /** No live preview (file-picker fallback): tap anywhere opens the picker. */
+  setFileMode(message = 'tap anywhere to take or choose a photo'): void {
+    this.fileMode = true
+    this.root.classList.add('mr-scan--file')
+    this.statusEl.textContent = message
   }
 
   destroy(): void {

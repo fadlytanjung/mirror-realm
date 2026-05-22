@@ -2,7 +2,7 @@
 # docs: 05-repository-pattern.md#concrete
 from __future__ import annotations
 
-from google.cloud.firestore_v1 import AsyncCollectionReference, Increment
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP, AsyncCollectionReference, Increment
 
 from ..domain.cost_guard import CostGuardRecord
 from .base import AbstractRepository, map_firestore_errors
@@ -49,17 +49,23 @@ class CostGuardRepository(AbstractRepository[CostGuardRecord]):
                 "geminiOutputTokens": Increment(output_tokens),
                 "estimatedCostUsd": Increment(estimated_cost_usd),
                 "forDate": doc_id,
+                "updatedAt": SERVER_TIMESTAMP,
             },
             merge=True,
         )
 
     @map_firestore_errors
     async def increment_submission(self, doc_id: str, *, device_hash: str) -> None:
+        # Use a nested map, not a dotted key: set(merge=True) treats dotted keys as
+        # LITERAL field names (only update() treats them as field paths), which would
+        # create a bogus "submissionsByDevice.<hash>" top-level field. merge=True deep
+        # -merges the nested map so other devices' counts are preserved.
         await self._col.document(doc_id).set(
             {
                 "submissions": Increment(1),
-                f"submissionsByDevice.{device_hash}": Increment(1),
+                "submissionsByDevice": {device_hash: Increment(1)},
                 "forDate": doc_id,
+                "updatedAt": SERVER_TIMESTAMP,
             },
             merge=True,
         )

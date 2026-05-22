@@ -1,0 +1,15 @@
+# apps/api/.dockerignore — build context is apps/api/
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+.mypy_cache
+tests
+.env
+.env.*
+!.env.example
+README.md
+*.log
+.DS_Store

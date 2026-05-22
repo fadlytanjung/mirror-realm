@@ -9,7 +9,8 @@
 //   0 surface-top-left   1 surface-top   2 surface-top-right   3 decoration
 //   4 fill-left          5 fill          6 fill-right          7 goal flag
 //   8 hazard spike
-export const TILE = 32
+export const TILE = 32 // world grid size (logical px per tile)
+export const TILE_SRC = 64 // source texture frame size (2x); sprites are downscaled to TILE
 export const TILESET_COLS = 4
 
 export const FRAME = {

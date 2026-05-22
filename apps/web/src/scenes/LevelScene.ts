@@ -3,6 +3,8 @@
 import Phaser from 'phaser'
 import type { Level } from '../domain/level'
 import type { PlaySource } from '../app'
+import { onResize } from '../app'
+import { toast } from '../ui/toast'
 import { buildLevel } from '../game/builder'
 import { Controls } from '../game/controls'
 import {
@@ -15,6 +17,7 @@ import {
   WORLD_W,
   WORLD_H,
 } from '../game/physics'
+import { TILE_SRC } from '../game/tile-mapping'
 
 interface LevelData {
   level: Level
@@ -46,8 +49,8 @@ export class LevelScene extends Phaser.Scene {
 
   preload(): void {
     this.load.spritesheet('tiles', `/tilesets/${this.level.vibe}.png`, {
-      frameWidth: 32,
-      frameHeight: 32,
+      frameWidth: TILE_SRC,
+      frameHeight: TILE_SRC,
     })
     this.load.spritesheet('player', '/sprites/spark.png', {
       frameWidth: PLAYER_W,
@@ -77,6 +80,9 @@ export class LevelScene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
     this.cameras.main.setLerp(0.12, 0.12)
+    // Zoom so the full world height is always on screen; the camera follows the
+    // player horizontally. Recompute on rotate/resize (docs/08 §responsive).
+    onResize(this, (_w, h) => this.cameras.main.setZoom(h / WORLD_H))
 
     this.controls = new Controls(this)
     this.startTime = this.time.now
@@ -134,10 +140,20 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private drawBackdrop(): void {
-    // Subtle parallax wash so empty space never looks broken.
-    const g = this.add.graphics().setScrollFactor(0).setDepth(-5)
-    g.fillGradientStyle(0x1a0033, 0x1a0033, 0x2a0a4a, 0x10001f, 1)
-    g.fillRect(0, 0, this.scale.width, this.scale.height)
+    // Sky wash — oversized + anchored at screen origin (scrollFactor 0) so it covers
+    // the viewport at any camera zoom.
+    const g = this.add.graphics().setScrollFactor(0).setDepth(-6)
+    g.fillGradientStyle(0x3a1066, 0x2a0a55, 0x140033, 0x0a0420, 1)
+    g.fillRect(0, 0, WORLD_W * 2, WORLD_H * 2)
+
+    // A faint parallax starfield across the world for depth/ambiance.
+    const stars = this.add.graphics().setScrollFactor(0.35).setDepth(-5)
+    for (let i = 0; i < 90; i++) {
+      const x = Phaser.Math.Between(0, WORLD_W)
+      const y = Phaser.Math.Between(0, WORLD_H)
+      stars.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.08, 0.5))
+      stars.fillCircle(x, y, Phaser.Math.FloatBetween(0.6, 1.8))
+    }
   }
 
   private die(): void {
@@ -159,22 +175,10 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private hud(): void {
-    if (this.levelData.isFromYesterday) {
-      this.add
-        .text(12, 12, "yesterday's pick", { fontFamily: 'monospace', fontSize: '14px', color: '#c9b6ff' })
-        .setScrollFactor(0)
-        .setDepth(10)
-    }
-    if (this.levelData.wasUnreachableOnFirstAttempt) {
-      this.add
-        .text(12, this.scale.height - 26, 'tricky one!', {
-          fontFamily: 'monospace',
-          fontSize: '14px',
-          color: '#ffcc00',
-        })
-        .setScrollFactor(0)
-        .setDepth(10)
-    }
+    // Transient hints go through the DOM toast layer so they're unaffected by the
+    // world camera's zoom (docs/08 §responsive).
+    if (this.levelData.isFromYesterday) toast("yesterday's pick")
+    if (this.levelData.wasUnreachableOnFirstAttempt) toast('tricky one — good luck!')
   }
 
   private safePlay(key: string): void {
