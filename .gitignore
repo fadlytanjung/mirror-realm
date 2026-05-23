@@ -60,3 +60,4 @@ htmlcov/
 
 # Local Claude session noise
 .claude/
+POST.md
