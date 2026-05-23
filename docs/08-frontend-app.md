@@ -126,6 +126,28 @@ function parseHash(hash: string): Route {
 | `CaptureScene` | Pushed from menu | Mount `<video>` element, draw scan overlay, POST `/api/analyze`, transition to `LevelScene` on success |
 | `LevelScene` | The game | Build tile grid from `Level` JSON, run physics, handle input, fire `level:win` / `level:die` events |
 | `ResultScene` | Modal-style overlay over `LevelScene` | Win/lose card; share + replay + submit-to-daily buttons |
+| `PixelScene` / `AnimationScene` | Reveal (extend `RevealScene`) | Non-game experiences — render the captured photo with an effect, then PLAY / SHARE / AGAIN |
+
+<a id="experiences"></a>
+
+### Experiences (variant routing)
+
+> _Added: 2026-05-23 — a photo can yield one of three experiences; the AI picks which via
+> the `experience` field on the Level (`platformer` | `pixel` | `animation`)._
+
+- The **playable level is ALWAYS generated**, whatever `experience` is chosen. `experience`
+  only decides what `CaptureScene` shows *first*:
+  - `platformer` → `LevelScene` (the game).
+  - `pixel` → `PixelScene` — the captured photo, pixelated (Phaser postFX).
+  - `animation` → `AnimationScene` — the photo with a Ken-Burns drift + scan-line sweep.
+- **Privacy:** for `pixel`/`animation` the captured photo is rendered **on-device** (passed
+  scene→scene in memory, never uploaded). Nothing about the photo is stored server-side.
+- **Sharing always shares the level** (abstract data, no image) via `RevealScene`'s SHARE
+  button → `ShareSheet`. So a shared link always opens a *playable* game, never a dead-end
+  image — the reveal is the local "wow", the game is the shareable hook.
+- Both reveal scenes extend `RevealScene` (`src/scenes/RevealScene.ts`), which loads the
+  photo as a texture, lays out a vibe-framed image + title + CTA row, and re-layouts on
+  resize. Subclasses implement `applyEffect(img)`.
 
 ```ts
 // apps/web/src/scenes/LevelScene.ts (skeleton)

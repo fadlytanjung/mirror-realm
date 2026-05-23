@@ -32,6 +32,8 @@ Vibe = Literal[
     "monochrome",
 ]
 
+Experience = Literal["platformer", "pixel", "animation"]
+
 
 class Rect(BaseModel):
     model_config = {"extra": "forbid"}
@@ -59,6 +61,7 @@ class Level(BaseModel):
     model_config = {"extra": "forbid"}
     schemaVersion: Literal["1.0.0"] = "1.0.0"
     vibe: Vibe
+    experience: Experience = "platformer"
     platforms: Annotated[list[Rect], Field(min_length=4, max_length=12)]
     hazards: Annotated[list[Rect], Field(max_length=3)] = Field(default_factory=list)
     decorations: Annotated[list[Decoration], Field(max_length=16)] = Field(default_factory=list)

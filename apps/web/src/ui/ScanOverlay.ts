@@ -65,6 +65,16 @@ export class ScanOverlay {
     this.statusEl.textContent = on ? message : ''
   }
 
+  /**
+   * Confirm the capture: flash the screen and freeze the live frame, so the user
+   * clearly sees that a photo was taken before the scan animation runs over the still.
+   */
+  freeze(): void {
+    this.videoEl.pause()
+    this.root.classList.add('mr-scan--flash')
+    window.setTimeout(() => this.root.classList.remove('mr-scan--flash'), 240)
+  }
+
   /** No live preview (file-picker fallback): tap anywhere opens the picker. */
   setFileMode(message = 'tap anywhere to take or choose a photo'): void {
     this.fileMode = true

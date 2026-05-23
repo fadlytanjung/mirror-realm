@@ -27,6 +27,10 @@ export interface MirrorRealmLevel {
     | 'library'
     | 'cosmic'
     | 'monochrome'
+  /**
+   * Which experience the AI chose to reveal first from the photo. The playable level is ALWAYS generated (so sharing always opens a game); 'pixel'/'animation' are on-device reveals of the captured photo. See docs/08-frontend-app.md#experiences.
+   */
+  experience?: 'platformer' | 'pixel' | 'animation'
   platforms: Rect[]
   hazards?: Rect[]
   decorations?: Decoration[]

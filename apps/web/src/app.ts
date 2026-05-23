@@ -9,6 +9,8 @@ import { MenuScene } from './scenes/MenuScene'
 import { CaptureScene } from './scenes/CaptureScene'
 import { LevelScene } from './scenes/LevelScene'
 import { ResultScene } from './scenes/ResultScene'
+import { PixelScene } from './scenes/PixelScene'
+import { AnimationScene } from './scenes/AnimationScene'
 import { resolvePlaySource } from './routes/play'
 import { getOrCreateDeviceHash } from './services/storage'
 import { toast } from './ui/toast'
@@ -152,7 +154,7 @@ export function bootGame(): void {
       height: window.innerHeight,
     },
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
-    scene: [BootScene, MenuScene, CaptureScene, LevelScene, ResultScene],
+    scene: [BootScene, MenuScene, CaptureScene, LevelScene, ResultScene, PixelScene, AnimationScene],
   })
 
   game.registry.set('deviceHash', getOrCreateDeviceHash())

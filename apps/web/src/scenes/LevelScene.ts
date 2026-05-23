@@ -159,7 +159,9 @@ export class LevelScene extends Phaser.Scene {
   private die(): void {
     if (this.finished) return
     this.safePlay('sfx-die')
-    this.cameras.main.flash(140, 120, 0, 40)
+    // Camera juice (Phaser camera FX): red flash + shake on death.
+    this.cameras.main.flash(160, 150, 0, 40)
+    this.cameras.main.shake(180, 0.012)
     this.player.setVelocity(0, 0)
     this.player.setPosition(this.level.spawn.x, this.level.spawn.y)
   }
@@ -170,8 +172,18 @@ export class LevelScene extends Phaser.Scene {
     this.safePlay('sfx-win')
     const timeMs = Math.round(this.time.now - this.startTime)
     this.player.setVelocity(0, 0)
-    this.scene.launch('ResultScene', { level: this.level, source: this.levelData.source, timeMs })
-    this.scene.pause()
+    // Win punch: warm flash + a quick zoom-in before the result sheet opens.
+    const cam = this.cameras.main
+    cam.flash(220, 255, 220, 120)
+    cam.zoomTo(cam.zoom * 1.25, 280, 'Sine.easeInOut')
+    this.time.delayedCall(440, () => {
+      this.scene.launch('ResultScene', {
+        level: this.level,
+        source: this.levelData.source,
+        timeMs,
+      })
+      this.scene.pause()
+    })
   }
 
   private hud(): void {

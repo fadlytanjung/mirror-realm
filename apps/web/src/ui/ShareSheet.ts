@@ -11,7 +11,7 @@ import { toast } from './toast'
 export interface ShareSheetOptions {
   level: Level
   deviceHash: string
-  timeMs: number
+  timeMs?: number // omitted when sharing before a play (e.g. from a reveal scene)
   onReplay: () => void
   onHome: () => void
 }
@@ -67,9 +67,10 @@ export class ShareSheet {
   constructor(private opts: ShareSheetOptions) {
     this.root = document.createElement('div')
     this.root.className = 'mr-sheet'
+    const title = opts.timeMs != null ? `CLEARED in ${formatTime(opts.timeMs)}` : 'SHARE THIS REALM'
     this.root.innerHTML = `
       <div class="mr-sheet__card">
-        <div class="mr-sheet__title">CLEARED in ${formatTime(opts.timeMs)}</div>
+        <div class="mr-sheet__title">${title}</div>
         <div class="mr-sheet__qr"><div class="mr-sheet__spinner"></div></div>
         <a class="mr-sheet__url" target="_blank" rel="noopener">building share link…</a>
         <div class="mr-sheet__row">

@@ -95,13 +95,17 @@ Today the pipeline is a single "experience generator": photo → Level JSON → 
 platformer (the vibe only recolors tiles, so every result feels the same). The north star
 is **multiple experience types**, with the photo (and/or the user) selecting which.
 
-| ID | Experience | Lift | Feasibility / notes |
+| ID | Experience | Lift | Status / notes |
 |---|---|---|---|
-| **E1** | **Scoring + achievements** on the existing game | S | Coins, star rating (time/deaths), best-time. Pure client + small schema add. Cheapest replay-value boost. |
-| **E2** | **Photo effect** — stylize the captured photo (pixelate / neon / "mirror realm" glitch) as a shareable artifact | S–M | Client-side WebGL/canvas filters = free + instant; or a Gemini image model for AI styles (paid, slower). |
-| **E3** | **Short animation** — animated reveal of the photo (parallax / Ken-Burns / particle "scan→realm" morph), shareable as a clip | M | Client-side (Phaser 4 filters help); record to WebM via `MediaRecorder`. No model cost. |
-| **E4** | **Multiple game modes** — AI picks Climb / Run / Collect from the photo | L | New scenes + mechanics + schema `mode` field; real gameplay variety. |
-| **E5** | **AI short video** from the photo | XL | Veo-class model: expensive + slow (seconds–minutes), async job + polling. Defer until cost/latency justify. |
+| **E2** | **Photo effect** — `PixelScene`: captured photo pixelated (Phaser postFX) | S–M | **Shipped v1 (2026-05-23).** AI picks via `experience="pixel"`. On-device; level still generated for sharing. |
+| **E3** | **Short animation** — `AnimationScene`: Ken-Burns drift + scan-line | M | **Shipped v1 (2026-05-23).** AI picks via `experience="animation"`. Future: record to WebM via `MediaRecorder`. |
+| **E1** | **Scoring + achievements** on the platformer | S | Coins, star rating (time/deaths), best-time. Pure client + small schema add. Next candidate. |
+| **E4** | **More game modes** — Climb / Run / Collect as distinct `experience`s | L | The `experience` routing now exists; add new scenes + a `mode` per type. |
+| **E5** | **AI short video** from the photo | XL | Veo-class model: expensive + slow, async job + polling. Defer until cost/latency justify. |
+
+The **`experience` routing architecture** (analyze returns `experience`; `CaptureScene`
+routes to the matching scene; `RevealScene` base for non-game variants) shipped 2026-05-23
+with E2 + E3. Adding a variant is now: pick an `experience` value, add a scene.
 
 Architecture implication: introduce an **experience type** the analyze step returns
 (`{ "experience": "platformer" | "effect" | "animation" | ..., ... }`), and a frontend

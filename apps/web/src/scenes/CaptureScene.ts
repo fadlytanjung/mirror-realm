@@ -77,16 +77,28 @@ export class CaptureScene extends Phaser.Scene {
     }
 
     this.busy = true
+    // Flash + freeze the captured frame first so the user sees the capture happened,
+    // then run the scan animation over the still (live-camera path only).
+    if (!this.fileMode) this.overlay.freeze()
     this.overlay.setScanning(true)
     const deviceHash = this.registry.get('deviceHash') as string
     try {
       const res = await analyze(photo, deviceHash)
       setLevel(res.level)
-      this.scene.start('LevelScene', {
-        level: res.level,
-        source: 'fresh',
-        wasUnreachableOnFirstAttempt: res.wasUnreachableOnFirstAttempt,
-      })
+      // The AI picks which experience to reveal first. The level is always generated,
+      // so sharing always opens a playable game (docs/08 §experiences).
+      const exp = res.level.experience ?? 'platformer'
+      if (exp === 'pixel') {
+        this.scene.start('PixelScene', { level: res.level, photo })
+      } else if (exp === 'animation') {
+        this.scene.start('AnimationScene', { level: res.level, photo })
+      } else {
+        this.scene.start('LevelScene', {
+          level: res.level,
+          source: 'fresh',
+          wasUnreachableOnFirstAttempt: res.wasUnreachableOnFirstAttempt,
+        })
+      }
     } catch (err) {
       const code = err instanceof ApiError ? err.code : 'internal'
       toast(ERROR_COPY[code] ?? 'Something went wrong — try again.')
