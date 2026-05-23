@@ -39,7 +39,7 @@ This project follows **Spec-Driven Design**: `docs/` is the source of truth and 
 |---|---|
 | Frontend | Vite + Phaser 3 + TypeScript (PWA, installable on iOS) |
 | Backend | FastAPI + [`google-genai`](https://ai.google.dev/) (Python 3.12) |
-| AI | `gemini-3.1-flash-lite` via AI Studio (Gemini Developer API) |
+| AI | `gemini-3.5-flash` via AI Studio (Gemini Developer API) |
 | Data | Firestore (Native mode) + Cloud Storage |
 | Hosting | Firebase Hosting (web) + Cloud Run (api) |
 | Scheduler | Cloud Scheduler (Daily World rotation) |

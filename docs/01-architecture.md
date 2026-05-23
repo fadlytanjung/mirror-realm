@@ -41,7 +41,7 @@ flowchart TB
     end
 
     subgraph Vertex["Vertex AI (asia-southeast2)"]
-        Gemini["gemini-3.1-flash-lite<br/>(vision + JSON mode)"]
+        Gemini["gemini-3.5-flash<br/>(vision + JSON mode)"]
     end
 
     subgraph Storage["GCP managed storage"]
@@ -117,7 +117,7 @@ sequenceDiagram
     participant API as FastAPI /api/analyze
     participant CG as CostGuard
     participant A as LevelDesignerAgent (ADK)
-    participant G as gemini-3.1-flash-lite
+    participant G as gemini-3.5-flash
     participant RC as ReachabilityChecker
     participant FS as Firestore (costGuard/today)
 

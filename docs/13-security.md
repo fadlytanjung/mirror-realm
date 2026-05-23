@@ -53,7 +53,7 @@ The Cloud Run service runs as this SA. Used by the API to call all downstream GC
 
 | Role | Why |
 |---|---|
-| `roles/secretmanager.secretAccessor` (scoped to `mirror-realm-gemini-api-key`) | Read the Gemini API key at startup |
+| `roles/secretmanager.secretAccessor` (scoped to `mirror-realm`) | Read the mounted `.env` config secret at startup |
 | `roles/datastore.user` | Read/write Firestore |
 | `roles/storage.objectAdmin` | Read/write `mirror-realm-blobs` bucket (no other buckets) |
 | `roles/cloudtrace.agent` | Emit traces |
@@ -82,18 +82,23 @@ That's it. No Firestore, no Vertex. The Scheduler SA cannot do anything if leake
 
 ## 3. Secrets handling
 
-> _Changed: 2026-05-22 — Gemini inference now authenticates with an AI Studio API key
-> (`MR_GEMINI_API_KEY`) instead of Vertex workload identity. The key is the project's
-> one real secret: stored in Secret Manager (`mirror-realm-gemini-api-key`), injected
-> into Cloud Run at deploy time via `--set-secrets`, and read from `apps/api/.env`
-> locally. It is **never** committed and **never** shipped in the web bundle._
+> _Changed: 2026-05-23 — all backend config lives in ONE Secret Manager secret named
+> `mirror-realm` holding a full `.env` (including `MR_GEMINI_API_KEY`). Cloud Run mounts
+> it as a file at `/secrets/.env` (`--set-secrets=/secrets/.env=mirror-realm:latest`) and
+> `MR_ENV_FILE=/secrets/.env` points pydantic-settings at it. Updating any config = add a
+> new secret version; no env-flag redeploy. Locally the same vars live in the git-ignored
+> `apps/api/.env`. The secret is **never** committed and **never** shipped in the web bundle._
 
-We have exactly **one** secret: the Gemini API key.
+We keep all backend config in **one** secret (a full `.env`); the only truly sensitive
+value in it is the Gemini API key.
 
-- **Gemini API key** → Secret Manager secret `mirror-realm-gemini-api-key`, mounted as
-  the `MR_GEMINI_API_KEY` env var on Cloud Run. The runtime SA holds
-  `roles/secretmanager.secretAccessor` on that secret only. Locally it lives in the
-  git-ignored `apps/api/.env`.
+- **`mirror-realm` secret** → the entire `.env`, mounted as a **file** at `/secrets/.env`
+  on Cloud Run (not exploded into plain env vars, so the key isn't visible in the Cloud
+  Run env tab). The runtime SA holds `roles/secretmanager.secretAccessor` on this secret
+  only. Locally the same vars live in git-ignored `apps/api/.env`.
+- **Prod hygiene for the secret:** `MR_ALLOW_UNAUTH_ROTATE=false`, and
+  `MR_CORS_ORIGINS_STR` lists the real web origins (`https://<project>.web.app`,
+  `https://<project>.firebaseapp.com`) — not localhost-only.
 - **No DB credentials.** Firestore auth is workload identity (Cloud Run) / ADC (local).
 - **No API keys in the browser.** The PWA only talks to the Cloud Run URL.
 - **No tokens stored at rest.** OIDC tokens are minted per-request by Cloud Scheduler and discarded.

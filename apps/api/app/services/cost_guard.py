@@ -11,9 +11,10 @@ from ..repositories import CostGuardDep
 from ..repositories.cost_guard import CostGuardRepository
 from ..settings import settings
 
-# Pricing for gemini-3.1-flash-lite, USD per 1M tokens (docs/15). Update on price change.
-INPUT_PRICE_PER_MTOK = 0.10
-OUTPUT_PRICE_PER_MTOK = 0.40
+# Pricing for gemini-3.5-flash, USD per 1M tokens (docs/15). Update on model/price change.
+# (gemini-3.1-flash-lite was 0.10 / 0.40.)
+INPUT_PRICE_PER_MTOK = 1.50
+OUTPUT_PRICE_PER_MTOK = 9.00
 
 
 def _estimate_cost_usd(input_tokens: int, output_tokens: int) -> float:

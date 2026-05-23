@@ -53,6 +53,9 @@ testpaths = ["tests"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+# Keep defensive `# type: ignore`s for optional/untyped GCP client surfaces even when
+# the local stubs make them look redundant — versions differ across environments.
+warn_unused_ignores = false
 files = ["app"]
 plugins = ["pydantic.mypy"]
 

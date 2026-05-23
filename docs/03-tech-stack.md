@@ -97,7 +97,7 @@ Python **3.12**. Strict-mode mypy is enabled for `app/`.
 | Concern | Choice | Why |
 |---|---|---|
 | **Client** | **`google-genai`** | The official Gemini SDK. One single-turn `generateContent` call; no ADK runner/session machinery for a one-shot agent. |
-| **Model** | **`gemini-3.1-flash-lite`** | Cheapest tier with vision + JSON-mode. ~$0.0005/call estimated. See [`15-cost-and-limits.md`](./15-cost-and-limits.md). |
+| **Model** | **`gemini-3.5-flash`** | Cheapest tier with vision + JSON-mode. ~$0.0005/call estimated. See [`15-cost-and-limits.md`](./15-cost-and-limits.md). |
 | **Endpoint** | **AI Studio (Gemini Developer API)** | Auth with `MR_GEMINI_API_KEY` (Secret Manager in prod, `.env` local). Simplest path; no Vertex/ADC setup. |
 | **Region** | Inference is the Developer API's global endpoint. Cloud Run + Firestore stay in **`asia-southeast2`** (Jakarta). |
 | **Output mode** | **JSON-mode**, shape pinned in the prompt, Pydantic-validated. No strict `responseSchema` (the Developer API rejects the keywords Pydantic emits). |

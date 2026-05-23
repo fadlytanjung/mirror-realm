@@ -107,7 +107,7 @@ _session_service = InMemorySessionService()
 
 level_designer_agent = Agent(
     name="level_designer",
-    model=settings.gemini_model,                 # "gemini-3.1-flash-lite"
+    model=settings.gemini_model,                 # "gemini-3.5-flash"
     instruction=_render_system_prompt(),
     generate_content_config=gen_types.GenerateContentConfig(
         response_mime_type="application/json",
@@ -276,9 +276,12 @@ Pseudocode (in plain English):
 
 Hard rules:
 
-- **Max one retry.** Two Gemini calls per `/api/analyze` request, ceiling.
-- **Total wall clock ≤ 25s.** Each agent call gets a 12s timeout; A* gets 200ms; some slack for marshaling.
-- **No exponential backoff.** Vertex outages are not "we'll wait it out" outages; we surface them to the user.
+- **Max one retry.** Two Gemini calls per `/api/analyze` request, ceiling. If the retry
+  fails (bad JSON/timeout/safety) we return the schema-valid first level rather than 500.
+- **Total wall clock budget.** Each agent call gets a 20s timeout (gemini-3.5-flash with
+  thinking disabled lands ~5–10s; client allows 45s for attempt+retry, Cloud Run 60s);
+  A* gets 200ms; slack for marshaling.
+- **No exponential backoff.** Provider outages are not "we'll wait it out" outages; we surface them to the user.
 
 Violations list format (examples):
 
@@ -354,7 +357,7 @@ Every successful agent run (whether first or retry) must record usage. Implement
 from datetime import date
 from ..repositories.cost_guard import CostGuardRepository
 
-# Pricing constants for gemini-3.1-flash-lite (update when official pricing changes;
+# Pricing constants for gemini-3.5-flash (update when official pricing changes;
 # see docs/15-cost-and-limits.md). All values USD per 1M tokens.
 INPUT_PRICE_PER_MTOK = 0.10
 OUTPUT_PRICE_PER_MTOK = 0.40

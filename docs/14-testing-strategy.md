@@ -117,7 +117,7 @@ Tests cover:
 
 ## 4. Golden AI tests
 
-Live in `apps/api/tests/golden/`. **Call real Vertex AI** with `gemini-3.1-flash-lite`. Cost: ~$0.01 per run. Gated by env var so CI doesn't accidentally pay for them.
+Live in `apps/api/tests/golden/`. **Call real Vertex AI** with `gemini-3.5-flash`. Cost: ~$0.01 per run. Gated by env var so CI doesn't accidentally pay for them.
 
 ```bash
 # Only run when explicitly enabled

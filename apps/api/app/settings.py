@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     gcp_location: str = "asia-southeast2"
     firestore_database: str = "(default)"
 
-    gemini_model: str = "gemini-3.1-flash-lite"
+    gemini_model: str = "gemini-3.5-flash"
     # AI Studio (Gemini Developer API) key. Injected from Secret Manager in prod
     # (docs/13 §3), read from apps/api/.env locally. Empty -> agent calls fail.
     gemini_api_key: str = ""

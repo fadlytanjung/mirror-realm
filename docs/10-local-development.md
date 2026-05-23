@@ -98,7 +98,7 @@ MR_GCP_LOCATION=asia-southeast2
 MR_FIRESTORE_DATABASE=(default)
 
 # Gemini
-MR_GEMINI_MODEL=gemini-3.1-flash-lite
+MR_GEMINI_MODEL=gemini-3.5-flash
 
 # Cost guard caps (overrideable per env)
 MR_DAILY_GEMINI_CALL_CAP=300

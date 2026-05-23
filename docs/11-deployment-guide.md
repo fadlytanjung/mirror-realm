@@ -89,8 +89,8 @@ for ROLE in \
     --role "${ROLE}"
 done
 
-# Read the Gemini API key — scoped to the one secret, not project-wide
-gcloud secrets add-iam-policy-binding mirror-realm-gemini-api-key \
+# Read the config secret — scoped to the one secret, not project-wide
+gcloud secrets add-iam-policy-binding mirror-realm \
   --member "serviceAccount:mirror-realm-runtime@${PROJECT_ID}.iam.gserviceaccount.com" \
   --role roles/secretmanager.secretAccessor
 
@@ -106,18 +106,22 @@ These bindings live as code in `infra/grant-iam.sh` — run that script instead 
 
 ### Secrets (one time)
 
-> _Changed: 2026-05-22 — the Gemini API key is the project's one secret._
+> _Changed: 2026-05-23 — all backend config lives in ONE secret (`mirror-realm`) holding
+> a full `.env`. Update config by adding a new secret version — no redeploy of env flags._
 
 ```bash
-# Create the secret, then add your AI Studio API key as the first version.
-gcloud secrets create mirror-realm-gemini-api-key --replication-policy=automatic
-printf 'YOUR_AI_STUDIO_API_KEY' | gcloud secrets versions add mirror-realm-gemini-api-key --data-file=-
+# Store your whole prod .env (incl. MR_GEMINI_API_KEY) as one secret.
+# Make sure prod values are set: MR_ALLOW_UNAUTH_ROTATE=false and MR_CORS_ORIGINS_STR
+# lists https://<project>.web.app (+ .firebaseapp.com), not just localhost.
+gcloud secrets create mirror-realm --replication-policy=automatic
+gcloud secrets versions add mirror-realm --data-file=path/to/prod.env
 ```
 
-The deploy step injects it as the `MR_GEMINI_API_KEY` env var via
-`gcloud run deploy --set-secrets=MR_GEMINI_API_KEY=mirror-realm-gemini-api-key:latest`
-(see `infra/cloudbuild.yaml` and `infra/deploy-api.sh`). Rotate by adding a new
-version; Cloud Run picks up `:latest` on the next deploy.
+Cloud Run mounts the secret as a file at `/secrets/.env` and `MR_ENV_FILE` points
+pydantic-settings at it:
+`gcloud run deploy --set-secrets=/secrets/.env=mirror-realm:latest --set-env-vars=MR_ENV_FILE=/secrets/.env`
+(see `infra/cloudbuild.yaml` and `infra/deploy-api.sh`). Rotate/update config by adding a
+new version; redeploy (or the next deploy) picks up `:latest`.
 
 <a id="firestore"></a>
 

@@ -209,7 +209,7 @@ Per-stack conventions live in [`docs/03-tech-stack.md`](./docs/03-tech-stack.md)
 
 ## 7. Working with AI / ADK
 
-Mirror Realm's AI surface is intentionally small (today: one vision agent that converts photos into level JSON). It uses the **`google-genai`** SDK with **`gemini-3.1-flash-lite`** on the **AI Studio (Gemini Developer API)** endpoint, authenticated by `MR_GEMINI_API_KEY`. Details: [`docs/06-ai-agent-layer.md`](./docs/06-ai-agent-layer.md).
+Mirror Realm's AI surface is intentionally small (today: one vision agent that converts photos into level JSON). It uses the **`google-genai`** SDK with **`gemini-3.5-flash`** on the **AI Studio (Gemini Developer API)** endpoint, authenticated by `MR_GEMINI_API_KEY`. Details: [`docs/06-ai-agent-layer.md`](./docs/06-ai-agent-layer.md).
 
 Key rules when touching agent code:
 

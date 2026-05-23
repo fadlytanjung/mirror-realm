@@ -39,6 +39,7 @@ apps/api/*.egg-info/
 .env
 .env.local
 .env.*.local
+.env.production
 !.env.example
 
 # GCP / Firebase

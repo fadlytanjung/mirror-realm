@@ -45,13 +45,15 @@ gcloud services enable firestore.googleapis.com secretmanager.googleapis.com \
 # Create the Firestore database (region is PERMANENT — asia-southeast2 = Jakarta)
 gcloud firestore databases create --location=asia-southeast2 --project "$PROJECT"
 
-# Store your Gemini API key in Secret Manager (used by cloud deploys)
-gcloud secrets create mirror-realm-gemini-api-key --replication-policy=automatic --project "$PROJECT"
-printf 'YOUR_AI_STUDIO_API_KEY' | gcloud secrets versions add mirror-realm-gemini-api-key --data-file=- --project "$PROJECT"
+# Store your WHOLE prod .env (incl. MR_GEMINI_API_KEY) as ONE secret for cloud deploys.
+# Prepare a prod.env first — set MR_ALLOW_UNAUTH_ROTATE=false and MR_CORS_ORIGINS_STR to
+# https://<your-project-id>.web.app,https://<your-project-id>.firebaseapp.com
+gcloud secrets create mirror-realm --replication-policy=automatic --project "$PROJECT"
+gcloud secrets versions add mirror-realm --data-file=prod.env --project "$PROJECT"
 ```
 
-> If the Firestore database and secret already exist for your project,
-> you can skip those two commands.
+> If the Firestore database and `mirror-realm` secret already exist for your project,
+> you can skip those commands. Update config later with another `secrets versions add`.
 
 ---
 

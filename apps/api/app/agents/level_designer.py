@@ -29,7 +29,7 @@ from ..settings import settings
 from .schemas import Level
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
-AGENT_CALL_TIMEOUT_S = 12.0  # docs/06 §6: per-call wall clock
+AGENT_CALL_TIMEOUT_S = 20.0  # docs/06 §6: per-call wall clock (gemini-3.5-flash is slower)
 
 
 @dataclass
@@ -112,6 +112,9 @@ async def run_level_designer(
         temperature=0.7,
         top_p=0.95,
         max_output_tokens=4096,
+        # gemini-3.5-flash "thinks" by default, which blows our latency budget for this
+        # small structured task. Disable it for fast, predictable responses (docs/06 §6).
+        thinking_config=gen_types.ThinkingConfig(thinking_budget=0),
     )
     contents = [gen_types.Content(role="user", parts=parts)]
 

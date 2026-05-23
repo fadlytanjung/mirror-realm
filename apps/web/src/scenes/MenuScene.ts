@@ -133,11 +133,18 @@ export class MenuScene extends Phaser.Scene {
       </div>
     `
     document.body.appendChild(root)
-    const close = (): void => root.remove()
+    // Disable the Phaser menu's input while the modal is up: Phaser processes pointer
+    // events at the window level, so without this a tap on the DOM Close button also
+    // hits the menu button behind it (e.g. "Today's World").
+    this.input.enabled = false
+    const close = (): void => {
+      root.remove()
+      this.input.enabled = true
+    }
     root.addEventListener('click', (e) => {
       const t = e.target as HTMLElement
       if (t === root || t.closest('[data-act="close"]')) close()
     })
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, close)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => root.remove())
   }
 }

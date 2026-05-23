@@ -32,7 +32,7 @@ The transformation pipeline is:
 photo (JPEG, ~200KB)
   → Cloud Run API (FastAPI)
     → Google ADK agent
-      → gemini-3.1-flash-lite (Vertex AI, vision + JSON mode)
+      → gemini-3.5-flash (Vertex AI, vision + JSON mode)
     ← Level JSON (validated against packages/shared/level.schema.json)
   ← Level JSON
 PWA renders Level JSON with pre-baked Phaser tilesets

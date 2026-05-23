@@ -75,8 +75,9 @@ async function getJson<T>(path: string, timeoutMs: number): Promise<T> {
 }
 
 export function analyze(photoB64: string, deviceHash: string): Promise<AnalyzeResponse> {
-  // server budget is 25s; client adds 2s margin (docs/07 §3).
-  return postJson<AnalyzeResponse>('/api/analyze', { photo: photoB64, deviceHash }, 27_000)
+  // Up to two model calls (attempt + retry); gemini-3.5-flash is slower, so allow
+  // headroom under Cloud Run's 60s request timeout (docs/07 §3).
+  return postJson<AnalyzeResponse>('/api/analyze', { photo: photoB64, deviceHash }, 45_000)
 }
 
 export function saveLevel(level: Level, deviceHash: string): Promise<SaveLevelResponse> {

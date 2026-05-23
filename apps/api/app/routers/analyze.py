@@ -14,7 +14,7 @@ from ..agents.level_designer import AgentRunner, run_level_designer
 from ..agents.schemas import Level
 from ..domain.level import validate_endpoints
 from ..domain.reachability import check_reachable
-from ..errors import ValidationFailed
+from ..errors import AgentError, AgentTimeoutError, SafetyFilterError, ValidationFailed
 from ..services.cost_guard import CostGuard, CostGuardServiceDep
 from ..telemetry.tracing import current_trace_id
 
@@ -85,8 +85,15 @@ async def analyze(
             level=first.level, wasUnreachableOnFirstAttempt=False, tracingId=_tracing_id()
         )
 
-    # One retry only (docs/06 §6) — return the retry regardless, flag if still bad.
-    retry = await runner(image_bytes=image_bytes, violations_for_retry=violations)
+    # One retry only (docs/06 §6). The first level is already schema-valid (just not
+    # reachable), so if the retry fails — bad JSON, timeout, safety block — we keep the
+    # first level rather than 500-ing the user. We always have something playable.
+    try:
+        retry = await runner(image_bytes=image_bytes, violations_for_retry=violations)
+    except (AgentError, AgentTimeoutError, SafetyFilterError):
+        return AnalyzeResponse(
+            level=first.level, wasUnreachableOnFirstAttempt=True, tracingId=_tracing_id()
+        )
     await cg.record_agent_run(
         today, input_tokens=retry.input_tokens, output_tokens=retry.output_tokens
     )

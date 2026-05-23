@@ -24,17 +24,25 @@ What this costs to run, what the safety nets are, and what happens when you (or 
 
 Mirror Realm's only meaningful runtime cost is Gemini. Everything else lives inside free tiers at hobby scale.
 
+> _Changed: 2026-05-23 — switched to **gemini-3.5-flash** ($1.50 / $9.00 per 1M
+> input/output tokens, ~15–22× gemini-3.1-flash-lite). Per-level cost rose accordingly;
+> the $1/day soft cap now trips around ~30–60 analyses/day. Thinking is disabled on the
+> agent call to keep latency + cost down. Bump `MR_DAILY_GEMINI_USD_CAP` in the secret if
+> you need more headroom while testing._
+
 | Action | Tokens / units | Cost (USD) |
 |---|---|---|
-| One `/api/analyze` happy path (1 image ≈ 258 image-tokens + ~300 text-in + ~600 out) | ~1158 input + 600 output | **~$0.0005** |
-| Same, but with a retry (2 model calls) | doubled | **~$0.001** |
+| One `/api/analyze` happy path (1 image ≈ 258 image-tokens + ~300 text-in + ~600 out) | ~1158 input + 600 output | **~$0.007** |
+| Same, but with a retry (2 model calls) | doubled | **~$0.015** |
 | One Imagen 4 Fast image (offline, asset-gen only) | 1 image | **~$0.04** (one-time during dev) |
 | Firestore write | 1 op | $0 (within free tier) |
 | Firestore read | 1 op | $0 (within free tier) |
 | Cloud Run invocation | 1 req | $0 (within free tier) |
 | Firebase Hosting GET | 1 | $0 (within free tier) |
 
-Practical bottom line: **a level costs about a tenth of a US cent.**
+Practical bottom line: **a level costs roughly 0.7–1.5 US cents** with gemini-3.5-flash.
+The monthly scenarios below were sized for the old flash-lite price — scale them ~15×,
+but remember the **$1/day soft cap** bounds actual spend regardless (excess → friendly 503).
 
 <a id="scenarios"></a>
 
@@ -130,13 +138,13 @@ The first three rows are noticed by the operator; the last three are noticed by 
 
 ## 7. Pricing assumptions — verify before deploy
 
-> **Verify these numbers in the GCP pricing page at deploy time.** They were correct at 2026-05-20 for `gemini-3.1-flash-lite` in `asia-southeast2`.
+> **Verify these numbers in the GCP pricing page at deploy time.** They were correct at 2026-05-20 for `gemini-3.5-flash` in `asia-southeast2`.
 
 The pricing constants live in `apps/api/app/services/cost_guard.py`:
 
 ```python
-INPUT_PRICE_PER_MTOK = 0.10     # USD per 1M input tokens
-OUTPUT_PRICE_PER_MTOK = 0.40    # USD per 1M output tokens
+INPUT_PRICE_PER_MTOK = 1.50     # USD per 1M input tokens (gemini-3.5-flash)
+OUTPUT_PRICE_PER_MTOK = 9.00    # USD per 1M output tokens (gemini-3.5-flash)
 ```
 
 If Google publishes a price change:

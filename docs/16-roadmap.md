@@ -28,7 +28,7 @@ Two focused weekends with Claude as pair-programmer. Each block ends with a runn
 |---|---|---|
 | **Sat AM** — Scaffold | GCP project bootstrap; PWA boilerplate; backend boilerplate; camera capture working | Local PWA shows live camera; `pnpm test` green; `gcloud config get-value project` correct |
 | **Sat PM** — Rectangle platformer | Hard-coded Level JSON renders as Phaser scene; player jumps; reaches a goal flag | Tap goal → "win" event |
-| **Sun AM** — Real Gemini | Cloud Run service up; calls `gemini-3.1-flash-lite` via ADK; returns schema-valid Level | `/api/analyze` with a real photo returns a real Level on the device |
+| **Sun AM** — Real Gemini | Cloud Run service up; calls `gemini-3.5-flash` via ADK; returns schema-valid Level | `/api/analyze` with a real photo returns a real Level on the device |
 | **Sun PM** — Tilesets + polish | Replace rectangles with Kenney tilesets per vibe; scan animation; first end-to-end magic loop | Photograph anything → playable level in the wild |
 
 ### Weekend 2 — "Make It Shareable"
@@ -82,6 +82,31 @@ Each is a candidate for a v2 spec; **do not implement** without first writing a 
 | **S9** | Custom tileset upload | L | Asset moderation problem; not aligned with v1 ethos |
 | **S10** | Native iOS app (App Store) | XL | PWA is doing fine; only worth it if distribution becomes the bottleneck |
 | **S11** | Multiplayer racing (real-time WebSocket) | XL | Out of scope for Cloud Run's 60-min request cap; would need GKE |
+
+<a id="multi-experience"></a>
+
+## 5. Direction: from one game to many experiences
+
+> _Added: 2026-05-23 — owner feedback: a photo should produce **varied experiences**, not
+> just one Mario-like platformer with more features. Candidates: photo effects, short
+> animations, even short video — chosen/generated per photo._
+
+Today the pipeline is a single "experience generator": photo → Level JSON → Phaser
+platformer (the vibe only recolors tiles, so every result feels the same). The north star
+is **multiple experience types**, with the photo (and/or the user) selecting which.
+
+| ID | Experience | Lift | Feasibility / notes |
+|---|---|---|---|
+| **E1** | **Scoring + achievements** on the existing game | S | Coins, star rating (time/deaths), best-time. Pure client + small schema add. Cheapest replay-value boost. |
+| **E2** | **Photo effect** — stylize the captured photo (pixelate / neon / "mirror realm" glitch) as a shareable artifact | S–M | Client-side WebGL/canvas filters = free + instant; or a Gemini image model for AI styles (paid, slower). |
+| **E3** | **Short animation** — animated reveal of the photo (parallax / Ken-Burns / particle "scan→realm" morph), shareable as a clip | M | Client-side (Phaser 4 filters help); record to WebM via `MediaRecorder`. No model cost. |
+| **E4** | **Multiple game modes** — AI picks Climb / Run / Collect from the photo | L | New scenes + mechanics + schema `mode` field; real gameplay variety. |
+| **E5** | **AI short video** from the photo | XL | Veo-class model: expensive + slow (seconds–minutes), async job + polling. Defer until cost/latency justify. |
+
+Architecture implication: introduce an **experience type** the analyze step returns
+(`{ "experience": "platformer" | "effect" | "animation" | ..., ... }`), and a frontend
+registry that routes each type to its renderer. Build E1/E2/E3 first (cheap, client-side,
+no new model cost); gate E4/E5 behind their own spec docs before implementation.
 
 If you're tempted to do S5, S9, S10, or S11, write a clean v2 architecture doc first — they each break a current invariant in [`02-repository-structure.md`](./02-repository-structure.md) or [`03-tech-stack.md`](./03-tech-stack.md).
 
