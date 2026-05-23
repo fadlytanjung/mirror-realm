@@ -14,6 +14,8 @@ export default [
     rules: {
       ...tseslint.configs.recommended.rules,
       '@typescript-eslint/no-non-null-assertion': 'off',
+      // Allow intentionally-unused args/vars prefixed with _ (e.g. overridable hooks).
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
 ]

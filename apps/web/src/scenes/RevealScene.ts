@@ -19,8 +19,10 @@ const TEX = 'capture'
 
 export abstract class RevealScene extends Phaser.Scene {
   protected level!: Level
-  private photo!: string
+  protected photo!: string
   protected title = ''
+  /** Render the texture with nearest-neighbour (crisp) — set by pixel-art variants. */
+  protected crisp = false
   private sheet?: ShareSheet
   private ready = false
 
@@ -32,22 +34,39 @@ export abstract class RevealScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#0c0018')
-    // (Re)load the captured photo as a texture, then drive layout via onResize.
-    if (this.textures.exists(TEX)) this.textures.remove(TEX)
-    this.textures.once(Phaser.Textures.Events.ADD, (key: string) => {
-      if (key !== TEX) return
-      this.ready = true
-      onResize(this, () => this.build())
-    })
-    this.textures.addBase64(TEX, `data:image/jpeg;base64,${this.photo}`)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.sheet?.destroy()
       this.sheet = undefined
     })
+    void this.loadTexture()
   }
 
-  /** Apply the variant's visual effect to the photo image (pixelate, animate, …). */
-  protected abstract applyEffect(img: Phaser.GameObjects.Image, w: number, h: number): void
+  /** The data URL to render. Override to pre-process the photo (e.g. pixel art). */
+  protected sourceDataUrl(): Promise<string> {
+    return Promise.resolve(`data:image/jpeg;base64,${this.photo}`)
+  }
+
+  private async loadTexture(): Promise<void> {
+    let url: string
+    try {
+      url = await this.sourceDataUrl()
+    } catch {
+      url = `data:image/jpeg;base64,${this.photo}` // fall back to the raw photo
+    }
+    if (this.textures.exists(TEX)) this.textures.remove(TEX)
+    this.textures.once(Phaser.Textures.Events.ADD, (key: string) => {
+      if (key !== TEX) return
+      if (this.crisp) this.textures.get(TEX).setFilter(Phaser.Textures.FilterMode.NEAREST)
+      this.ready = true
+      onResize(this, () => this.build())
+    })
+    this.textures.addBase64(TEX, url)
+  }
+
+  /** Apply the variant's visual effect to the photo image (animate, …). Optional. */
+  protected applyEffect(_img: Phaser.GameObjects.Image, _w: number, _h: number): void {
+    /* default: no extra effect (pixel art is baked into the texture) */
+  }
 
   private build(): void {
     if (!this.ready) return

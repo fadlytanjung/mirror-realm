@@ -1,28 +1,25 @@
 // apps/web/src/scenes/PixelScene.ts
 // docs: 08-frontend-app.md#experiences
 //
-// "Funny pixel" reveal: the captured photo, pixelated. Uses Phaser 3.60+ postFX
-// (WebGL); falls back gracefully to the plain image if postFX is unavailable.
+// "Funny pixel" reveal: the captured photo converted to crisp, posterised pixel art
+// (client-side, on-device) and rendered with nearest-neighbour so the pixels stay sharp.
 import type Phaser from 'phaser'
 import { RevealScene } from './RevealScene'
+import { toPixelArt } from '../services/pixelize'
 
 export class PixelScene extends RevealScene {
   constructor() {
     super('PixelScene')
     this.title = 'PIXEL REALM'
+    this.crisp = true // keep the pixels sharp despite global antialiasing
+  }
+
+  protected sourceDataUrl(): Promise<string> {
+    return toPixelArt(`data:image/jpeg;base64,${this.photo}`, { cols: 72, steps: 5, saturate: 1.35 })
   }
 
   protected applyEffect(img: Phaser.GameObjects.Image): void {
-    img.setScale(img.scaleX) // keep fit
-    try {
-      const fx = img.postFX?.addPixelate(2)
-      if (fx) {
-        // Animate from chunky to crisp-ish for a "developing" reveal, then settle chunky.
-        fx.amount = 14
-        this.tweens.add({ targets: fx, amount: 6, duration: 900, ease: 'Sine.easeOut' })
-      }
-    } catch {
-      /* no WebGL postFX — the plain photo still shows */
-    }
+    img.setAlpha(0)
+    this.tweens.add({ targets: img, alpha: 1, duration: 320, ease: 'Sine.easeOut' })
   }
 }

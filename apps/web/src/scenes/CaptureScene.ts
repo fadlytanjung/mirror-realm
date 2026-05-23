@@ -36,6 +36,12 @@ export class CaptureScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Phaser reuses the scene instance, so reset per-entry state — otherwise after the
+    // first successful capture `busy` stays true and the shutter never responds again.
+    this.busy = false
+    this.picking = false
+    this.fileMode = false
+
     this.overlay = new ScanOverlay({
       onShutter: () => void this.onShutter(),
       onClose: () => navigateHash('#/'),

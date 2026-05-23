@@ -148,7 +148,9 @@ export class ShareSheet {
       const msg =
         code === 'submission_rate_limited'
           ? "That's plenty for today — try again tomorrow."
-          : 'Could not submit — try again.'
+          : code === 'unreachable_level'
+            ? "This level can't be finished, so it can't join Daily — try another."
+            : 'Could not submit — try again.'
       toast(msg)
       btn.disabled = false
     }
