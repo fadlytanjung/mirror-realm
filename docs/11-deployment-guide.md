@@ -160,6 +160,10 @@ gcloud firestore fields ttls update ttl \
 
 The `ttl` field name in the Pydantic models matches the configured field — keep them in sync.
 
+> **Reset for testing:** `./infra/clean-firestore.sh` bulk-deletes all documents in
+> `levels`/`submissions`/`daily`/`costGuard` (keeps the database, rules, and indexes).
+> Destructive — prompts for confirmation (`--yes` to skip).
+
 `infra/firestore.rules`:
 
 ```javascript
