@@ -99,6 +99,10 @@ export async function go(route: Route): Promise<void> {
     case 'short':
     case 'inline': {
       const resolved = await resolvePlaySource(route)
+      // Consume a deep-link PATH (/l/<hash>, /p/<payload>) by resetting the URL to '/'.
+      // Otherwise parseLocation keeps matching the path over the hash, trapping the user
+      // on the shared level — Home/Capture would just reload it (docs/08 §routing).
+      if (location.pathname !== '/') history.replaceState({}, '', '/')
       if (!resolved) {
         toast("That doesn't look like a Mirror Realm level.")
         startSceneExclusive('MenuScene')

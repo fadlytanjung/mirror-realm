@@ -12,6 +12,7 @@ export interface ShareSheetOptions {
   level: Level
   deviceHash: string
   timeMs?: number // omitted when sharing before a play (e.g. from a reveal scene)
+  canSubmit?: boolean // only your OWN captures can be submitted to Daily (default false)
   onReplay: () => void
   onHome: () => void
 }
@@ -79,7 +80,7 @@ export class ShareSheet {
         </div>
         <div class="mr-sheet__row">
           <button class="mr-btn mr-btn--ghost" data-act="replay">Replay</button>
-          <button class="mr-btn mr-btn--accent" data-act="submit">Submit to Daily</button>
+          ${opts.canSubmit ? '<button class="mr-btn mr-btn--accent" data-act="submit">Submit to Daily</button>' : ''}
         </div>
         <button class="mr-sheet__home" data-act="home">‹ home</button>
       </div>

@@ -41,6 +41,41 @@ Point your iPhone at anything — your messy desk, a street, a coffee mug — an
 
 ---
 
+## 1.5 Evolution since this doc was written
+
+> _The text below is the **founding vision** (kept intact). This section records how the
+> build has **improved** on it. Nothing here abandons the original idea — it extends it.
+> Source of truth for current behavior is the `docs/` tree; this is the human summary._
+
+**The magic, expanded — "combine the game AND the photo for more fun."**
+The original promise was *photo → dissolves → pixel-art platformer*. We kept that, and added
+**multiple experiences** the AI picks per photo (`experience` field on the level):
+- **`platformer`** — the original: photo becomes a playable pixel-art level.
+- **`pixel`** — a "funny pixel" reveal of the photo itself (posterised pixel art).
+- **`animation`** — an animated reveal (Ken-Burns drift + scan-line).
+
+A **playable level is always generated** regardless, so **sharing always opens a playable
+game** (the photo never leaves the device for the pixel/animation reveals — privacy intact).
+This is an *improvement*, not a pivot: the pixel-art identity and the capture→play→share loop
+remain the heart of the app.
+
+**Implementation deltas from the original spec (all intentional):**
+
+| Area | Original doc | Now (current build) |
+|---|---|---|
+| AI provider | Vertex AI · Gemini 2.5 Flash · workload identity (no keys) | **AI Studio (Gemini Developer API) · `gemini-3.5-flash` · API key** in Secret Manager (one secret holds the full `.env`) |
+| Structured output | strict `responseSchema` | **JSON-mode + prompt + Pydantic validation** (Developer API rejects the schema keywords) |
+| Backend | Node + Hono | **Python + FastAPI + `google-genai`** |
+| Physics | Matter.js | **Arcade physics** (lighter, fine for this platformer) |
+| Cost / level | ~$0.001 | **~$0.007–0.015** (3.5-flash); `$1/day` soft cap (~30–60 levels) |
+| Daily | submit to *tomorrow's* pool; operator pre-vetting | **1 submission/device/day**; `GET /api/daily` **lazily seeds today** from the queue; reachability auto-validated (no manual approval) |
+| Rendering | `image-rendering: pixelated`, Press Start 2P | smoothed (`antialias`) to fix "broken pixel" scaling — **pixel-art remains the identity; crisp rendering is being polished, not dropped** |
+
+> _Changed: 2026-05-23 — reconciled the design doc with the evolved vision (multi-experience
+> + AI/stack deltas) per owner direction: "improvement, not change; don't lose the first design."_
+
+---
+
 ## 2. What It Feels Like
 
 You're at a café. You open Mirror Realm and point the camera at your half-finished latte sitting next to a stack of books. You tap **Capture.**
@@ -58,7 +93,7 @@ The next day you open the app and there's a notification dot on **Daily World**:
 ## 3. Design Pillars
 
 1. **Photo to playable in under 30 seconds.** This is the entire promise. Everything else negotiates around it.
-2. **The aesthetic is not the photo.** The photo is just structure. The visual style is always painterly pixel art — consistent, beautiful, and lightweight (we ship the tilesets, we don't generate them live).
+2. **The aesthetic is pixel art.** For the platformer, the photo is just structure and the look comes from shipped tilesets (we don't generate them live). _Evolved (see §1.5): the photo can ALSO become the art — the `pixel` and `animation` experiences reveal the photo itself as pixel art / animation. Pixel art stays the identity; we just added "the photo as art" as a second kind of fun._
 3. **One tap to share.** A level should be shareable as a QR or a URL. No accounts ever.
 
 ---

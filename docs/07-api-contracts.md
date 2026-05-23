@@ -284,14 +284,21 @@ Returns today's Daily World level. Implements C5.
 ### Behavior
 
 - Reads `daily/today`.
-- If `daily/today.forDate < today (UTC)` (cron failed), the server returns the same doc with `isFromYesterday: true` and logs `daily_stale`.
-- Response is cacheable for 1 hour on the CDN edge via `Cache-Control: public, max-age=3600`. Cloud Run sets this header.
+- **If there is no daily yet**, the server **lazily promotes the oldest queued submission**
+  (same logic as the rotate cron) and returns it. So "Today's World" works immediately after
+  someone submits — no waiting for the midnight rotate. Only `no_daily_yet` (404) if the
+  submission queue is also empty.
+  > _Changed: 2026-05-23 — added lazy seed so a fresh project's Daily isn't dead until the
+  > first cron tick._
+- If `daily/today.forDate < today (UTC)` (cron lagging), returns the same doc with
+  `isFromYesterday: true` and logs `daily_stale`.
+- Response is cacheable for 1 hour on the CDN edge via `Cache-Control: public, max-age=3600`.
 
 ### Errors
 
 | Status | code |
 |---|---|
-| 404 | `no_daily_yet` (cold project — no daily ever set) |
+| 404 | `no_daily_yet` (no daily set AND the submission queue is empty) |
 
 <a id="daily-rotate"></a>
 

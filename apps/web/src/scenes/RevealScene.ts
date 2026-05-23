@@ -135,6 +135,7 @@ export abstract class RevealScene extends Phaser.Scene {
     this.sheet = new ShareSheet({
       level: this.level,
       deviceHash: this.registry.get('deviceHash') as string,
+      canSubmit: true, // a reveal is always your own fresh capture
       onReplay: () => this.scene.start('LevelScene', { level: this.level, source: 'fresh' }),
       onHome: () => navigateHash('#/'),
     })

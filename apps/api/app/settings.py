@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     daily_gemini_call_cap: int = 300
     daily_gemini_usd_cap: float = 1.0
-    daily_submission_cap_per_device: int = 5
+    daily_submission_cap_per_device: int = 1  # one Daily submission per device per day
 
     scheduler_sa_email: str = "mirror-realm-scheduler@local-dev.iam.gserviceaccount.com"
     allow_unauth_rotate: bool = False

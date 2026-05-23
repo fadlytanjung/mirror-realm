@@ -33,6 +33,8 @@ export class ResultScene extends Phaser.Scene {
       level: data.level,
       deviceHash: this.registry.get('deviceHash') as string,
       timeMs: data.timeMs,
+      // Only your OWN capture can go to Daily — not a level you opened via a share link.
+      canSubmit: data.source === 'fresh',
       onReplay: () => {
         this.scene.stop('ResultScene')
         this.scene.stop('LevelScene')
